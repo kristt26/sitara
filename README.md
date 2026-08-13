@@ -67,3 +67,37 @@ Additionally, make sure that the following extensions are enabled in your PHP:
 - json (enabled by default - don't turn it off)
 - [mysqlnd](http://php.net/manual/en/mysqlnd.install.php) if you plan to use MySQL
 - [libcurl](http://php.net/manual/en/curl.requirements.php) if you plan to use the HTTP\CURLRequest library
+
+## SITARA — Pengaturan Keuangan
+
+Halaman utama menyediakan dashboard Tabler untuk pengaturan tarif mahasiswa, validasi tagihan, audit log, alur pembayaran, dan menu honor dosen.
+
+Untuk mengaktifkan mode database dan data contoh:
+
+```bash
+php spark migrate --all
+php spark db:seed DatabaseSeeder
+php spark serve
+```
+
+### Akun Admin
+
+Buat atau perbarui akun administrator melalui seeder terpisah. Kredensial tidak disimpan sebagai nilai bawaan di source code:
+
+```powershell
+$env:SITARA_ADMIN_USERNAME = 'admin-anda'
+$env:SITARA_ADMIN_PASSWORD = 'kata-sandi-kuat'
+$env:SITARA_ADMIN_NAME = 'Nama Administrator'
+$env:SITARA_ADMIN_EMAIL = 'admin@example.ac.id'
+php spark db:seed AdminUserSeeder
+```
+
+Setelah akun dibuat, buka `/login`. Seluruh halaman administrasi memerlukan akun dengan peran `ADMIN`.
+
+Endpoint utama:
+
+- `POST /api/fee-settings` menyimpan versi tarif baru beserta komponennya.
+- `POST /api/fee-settings/{id}/copy` menyalin tarif sebagai versi baru.
+- `PATCH /api/fee-settings/{id}/deactivate` menonaktifkan tarif tanpa menghapus histori.
+- `POST /api/student-bills` membuat tagihan setelah seluruh validasi server-side terpenuhi.
+- `GET /fee-settings/export` mengunduh daftar tarif dalam format CSV yang kompatibel dengan Excel.

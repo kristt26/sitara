@@ -1,0 +1,785 @@
+:root {
+            --sitara-navy: #102a43;
+            --sitara-blue: #1769aa;
+            --sitara-mist: #f5f8fc;
+            --sitara-line: #d9e2ec;
+            --sitara-text: #243b53;
+        }
+
+        body {
+            background: var(--sitara-mist);
+            color: var(--sitara-text);
+        }
+
+        .sitara-mobile-nav {
+            background: var(--sitara-navy);
+        }
+
+        .sitara-brand {
+            align-items: center;
+            color: #fff;
+            display: flex;
+            gap: .75rem;
+            min-width: 0;
+            text-decoration: none;
+        }
+
+        .sitara-brand:hover { color: #fff; }
+
+        .sitara-mark {
+            border: 1px solid rgba(255, 255, 255, .35);
+            border-radius: .7rem;
+            display: block;
+            flex: 0 0 auto;
+            height: 2.75rem;
+            object-fit: cover;
+            width: 2.75rem;
+        }
+
+        .sitara-brand-name {
+            display: grid;
+            font-weight: 800;
+            letter-spacing: .08em;
+            line-height: 1;
+        }
+
+        .sitara-brand-name small {
+            color: #9fb3c8;
+            font-size: .61rem;
+            font-weight: 600;
+            letter-spacing: .02em;
+            margin-top: .38rem;
+            text-transform: none;
+        }
+
+        #sidebarMenu {
+            background: var(--sitara-navy) !important;
+        }
+
+        #sidebarMenu .nav-link {
+            border-radius: .55rem;
+            color: #cbd5e1;
+            font-size: .875rem;
+            margin: .1rem 0;
+            padding: .68rem .75rem;
+        }
+
+        #sidebarMenu .nav-link:hover,
+        #sidebarMenu .nav-link.active {
+            background: rgba(255, 255, 255, .12);
+            color: #fff;
+        }
+
+        #sidebarMenu .sidebar-icon {
+            color: #9fb3c8;
+            width: 1.65rem;
+        }
+
+        .sitara-nav-bullet {
+            align-items: center;
+            background: rgba(159, 179, 200, .16);
+            border-radius: .35rem;
+            color: inherit;
+            display: inline-flex;
+            font-size: .62rem;
+            font-weight: 800;
+            height: 1.25rem;
+            justify-content: center;
+            width: 1.25rem;
+        }
+
+        #sidebarMenu .nav-link.active .sidebar-icon,
+        #sidebarMenu .nav-link:hover .sidebar-icon {
+            color: #82c7ff;
+        }
+
+        .sitara-nav-group {
+            margin-top: .2rem;
+        }
+
+        #sidebarMenu .sitara-nav-toggle {
+            align-items: center;
+            background: transparent;
+            border: 0;
+            display: flex;
+            text-align: left;
+            width: 100%;
+        }
+
+        #sidebarMenu .sitara-nav-toggle.active {
+            background: rgba(255, 255, 255, .08);
+        }
+
+        .sitara-nav-arrow {
+            margin-left: auto;
+            transition: transform .18s ease;
+            width: .9rem;
+        }
+
+        .sitara-nav-toggle[aria-expanded="true"] .sitara-nav-arrow {
+            transform: rotate(180deg);
+        }
+
+        .sitara-nav-submenu {
+            border-left: 1px solid rgba(159, 179, 200, .25);
+            margin: .15rem 0 .35rem 1.35rem;
+            padding-left: .45rem;
+        }
+
+        #sidebarMenu .sitara-nav-submenu .nav-link {
+            font-size: .82rem;
+            padding: .52rem .65rem;
+        }
+
+        .sitara-logout-form {
+            border-top: 1px solid rgba(159, 179, 200, .2);
+            margin: 1rem .1rem 0;
+            padding-top: .7rem;
+        }
+
+        #sidebarMenu .sitara-logout-button {
+            background: transparent;
+            border: 0;
+            display: flex;
+            text-align: left;
+            width: 100%;
+        }
+
+        #sidebarMenu .sitara-logout-button:hover {
+            background: rgba(220, 38, 38, .18);
+            color: #fecaca;
+        }
+
+        .content {
+            background: var(--sitara-mist);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .content > .container-fluid {
+            display: flex;
+            flex: 1 1 auto;
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .sitara-topbar {
+            align-items: center;
+            border-bottom: 1px solid var(--sitara-line);
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            padding: .25rem 0 1rem;
+        }
+
+        .sitara-kicker {
+            color: #627d98;
+            font-size: .75rem;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+
+        .sitara-live {
+            align-items: center;
+            background: #e3f9ed;
+            border-radius: 50rem;
+            color: #137333;
+            display: inline-flex;
+            font-size: .75rem;
+            font-weight: 700;
+            gap: .4rem;
+            padding: .4rem .65rem;
+        }
+
+        .sitara-live::before {
+            background: currentColor;
+            border-radius: 50%;
+            content: "";
+            height: .42rem;
+            width: .42rem;
+        }
+
+        .sitara-hero {
+            background: linear-gradient(120deg, #102a43 0%, #1769aa 100%);
+            border-radius: .9rem;
+            color: #fff;
+            overflow: hidden;
+            padding: 1.7rem;
+            position: relative;
+        }
+
+        .sitara-hero::after {
+            border: 28px solid rgba(255,255,255,.08);
+            border-radius: 50%;
+            content: "";
+            height: 13rem;
+            position: absolute;
+            right: -5rem;
+            top: -7rem;
+            width: 13rem;
+        }
+
+        .sitara-hero h1 { color: #fff; }
+
+        .sitara-hero p { color: #d9eaf8; max-width: 40rem; }
+
+        .sitara-hero .btn-light {
+            color: var(--sitara-navy);
+            font-weight: 700;
+        }
+
+        .sitara-filter-card,
+        .sitara-card {
+            border: 1px solid var(--sitara-line);
+            border-radius: .8rem;
+            box-shadow: 0 2px 8px rgba(16, 42, 67, .04);
+        }
+
+        .sitara-filter-card {
+            background: #fff;
+            margin-top: 1rem;
+            padding: 1rem 1.25rem;
+        }
+
+        .sitara-filter-card label {
+            color: #627d98;
+            font-size: .72rem;
+            font-weight: 700;
+            margin-bottom: .3rem;
+            text-transform: uppercase;
+        }
+
+        .sitara-filter-card .form-select {
+            border-color: #bcccdc;
+            font-size: .86rem;
+        }
+
+        .sitara-metric {
+            background: #fff;
+            border: 1px solid var(--sitara-line);
+            border-radius: .8rem;
+            height: 100%;
+            padding: 1.15rem;
+        }
+
+        .sitara-metric-icon {
+            align-items: center;
+            border-radius: .65rem;
+            display: inline-flex;
+            height: 2.55rem;
+            justify-content: center;
+            width: 2.55rem;
+        }
+
+        .sitara-metric-icon svg {
+            fill: none;
+            height: 1.25rem;
+            stroke: currentColor;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-width: 1.9;
+            width: 1.25rem;
+        }
+
+        .sitara-tone-blue .sitara-metric-icon { background: #e3f1ff; color: #1769aa; }
+        .sitara-tone-indigo .sitara-metric-icon { background: #ebe8ff; color: #5746af; }
+        .sitara-tone-orange .sitara-metric-icon { background: #fff2d8; color: #b45a00; }
+        .sitara-tone-green .sitara-metric-icon { background: #e3f9ed; color: #137333; }
+
+        .sitara-metric-label {
+            color: #627d98;
+            font-size: .79rem;
+            font-weight: 700;
+        }
+
+        .sitara-metric-value {
+            color: var(--sitara-navy);
+            font-size: 1.5rem;
+            font-weight: 800;
+            line-height: 1.2;
+            margin: .75rem 0 .2rem;
+        }
+
+        .sitara-metric-meta {
+            color: #829ab1;
+            font-size: .78rem;
+        }
+
+        .sitara-card .card-header {
+            background: #fff;
+            border-bottom: 1px solid #edf2f7;
+            padding: 1rem 1.25rem;
+        }
+
+        .sitara-card .card-body { padding: 1.25rem; }
+
+        .sitara-card-title {
+            color: var(--sitara-navy);
+            font-size: 1rem;
+            font-weight: 800;
+            margin: 0;
+        }
+
+        .sitara-card-subtitle {
+            color: #829ab1;
+            font-size: .78rem;
+            margin: .22rem 0 0;
+        }
+
+        .sitara-queue-item {
+            align-items: flex-start;
+            border-bottom: 1px solid #edf2f7;
+            display: flex;
+            gap: .8rem;
+            padding: .85rem 0;
+        }
+
+        .sitara-queue-item:last-child { border-bottom: 0; padding-bottom: 0; }
+
+        .sitara-queue-dot {
+            background: #d9eaf8;
+            border-radius: 50%;
+            color: #1769aa;
+            flex: 0 0 auto;
+            font-size: .7rem;
+            font-weight: 800;
+            height: 1.65rem;
+            line-height: 1.65rem;
+            text-align: center;
+            width: 1.65rem;
+        }
+
+        .sitara-queue-item strong {
+            color: #334e68;
+            display: block;
+            font-size: .86rem;
+        }
+
+        .sitara-queue-item span {
+            color: #829ab1;
+            display: block;
+            font-size: .76rem;
+            margin-top: .15rem;
+        }
+
+        .sitara-table th {
+            background: #f7fafc;
+            border-bottom: 1px solid #d9e2ec;
+            color: #627d98;
+            font-size: .7rem;
+            font-weight: 800;
+            letter-spacing: .04em;
+            padding: .78rem 1rem;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .sitara-table td {
+            border-color: #edf2f7;
+            color: #486581;
+            font-size: .84rem;
+            padding: .9rem 1rem;
+            vertical-align: middle;
+        }
+
+        .sitara-table .table-main {
+            color: #243b53;
+            font-weight: 700;
+        }
+
+        .sitara-status {
+            background: #e3f9ed;
+            border-radius: 50rem;
+            color: #137333;
+            display: inline-block;
+            font-size: .69rem;
+            font-weight: 800;
+            padding: .28rem .55rem;
+        }
+
+        .sitara-audit-icon {
+            align-items: center;
+            background: #edf2f7;
+            border-radius: .55rem;
+            color: #486581;
+            display: inline-flex;
+            flex: 0 0 auto;
+            font-size: .68rem;
+            font-weight: 800;
+            height: 2.15rem;
+            justify-content: center;
+            width: 2.15rem;
+        }
+
+        .sitara-audit-item {
+            align-items: flex-start;
+            border-bottom: 1px solid #edf2f7;
+            display: flex;
+            gap: .75rem;
+            padding: .85rem 0;
+        }
+
+        .sitara-audit-item:last-child { border-bottom: 0; padding-bottom: 0; }
+
+        .sitara-audit-item p {
+            color: #486581;
+            font-size: .82rem;
+            line-height: 1.4;
+            margin: 0;
+        }
+
+        .sitara-audit-item small { color: #829ab1; display: block; margin-top: .16rem; }
+
+        .sitara-empty {
+            color: #829ab1;
+            padding: 2.6rem 1rem;
+            text-align: center;
+        }
+
+        .sitara-footer {
+            color: #829ab1;
+            font-size: .75rem;
+            margin-top: auto;
+            padding: 1.3rem 0 .2rem;
+        }
+
+        .sitara-page-heading {
+            align-items: flex-start;
+            display: flex;
+            gap: 1rem;
+            justify-content: space-between;
+            margin: .25rem 0 1.25rem;
+        }
+
+        .sitara-page-heading h1 {
+            color: var(--sitara-navy);
+            font-size: 1.55rem;
+            font-weight: 800;
+            margin: 0;
+        }
+
+        .sitara-page-heading p {
+            color: #627d98;
+            font-size: .88rem;
+            margin: .35rem 0 0;
+        }
+
+        .sitara-status-muted {
+            background: #edf2f7;
+            color: #627d98;
+        }
+
+        .sitara-status-info {
+            background: #e3f1ff;
+            color: #1769aa;
+        }
+
+        .sitara-form-hint {
+            color: #829ab1;
+            font-size: .74rem;
+            margin-top: .35rem;
+        }
+
+        .sitara-active-switch .form-check-label {
+            color: #334e68;
+            font-size: .84rem;
+            font-weight: 700;
+        }
+
+        .sitara-row-actions {
+            align-items: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: .4rem;
+        }
+
+        .sitara-row-actions form { margin: 0; }
+
+        .sitara-period-parent-note {
+            color: #829ab1;
+            display: block;
+            font-size: .7rem;
+            font-weight: 700;
+            margin-top: .25rem;
+        }
+
+        .sitara-input-field {
+            align-items: center;
+            background: #f7fafc;
+            border: 1px solid #edf2f7;
+            border-radius: .55rem;
+            color: #486581;
+            display: flex;
+            font-size: .84rem;
+            font-weight: 600;
+            gap: .65rem;
+            min-height: 3.25rem;
+            padding: .55rem .7rem;
+        }
+
+        .sitara-flash-message {
+            border: 0;
+            border-radius: .65rem;
+            box-shadow: 0 2px 8px rgba(16, 42, 67, .05);
+            font-size: .86rem;
+            margin-bottom: 1rem;
+        }
+
+        .sitara-auth-page {
+            background: #f5f8fc;
+            min-height: 100vh;
+        }
+
+        .sitara-auth-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.1fr) minmax(24rem, .9fr);
+            min-height: 100vh;
+        }
+
+        .sitara-auth-brand-panel {
+            background: linear-gradient(135deg, #102a43 0%, #1769aa 100%);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding: clamp(2rem, 5vw, 4.5rem);
+            position: relative;
+        }
+
+        .sitara-auth-brand-panel::before,
+        .sitara-auth-brand-panel::after {
+            border: 42px solid rgba(255, 255, 255, .07);
+            border-radius: 50%;
+            content: "";
+            position: absolute;
+        }
+
+        .sitara-auth-brand-panel::before {
+            height: 22rem;
+            right: -8rem;
+            top: -10rem;
+            width: 22rem;
+        }
+
+        .sitara-auth-brand-panel::after {
+            bottom: -10rem;
+            height: 16rem;
+            left: -8rem;
+            width: 16rem;
+        }
+
+        .sitara-auth-intro {
+            margin: auto 0 2rem;
+            max-width: 35rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .sitara-auth-eyebrow {
+            font-size: .72rem;
+            font-weight: 800;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+        }
+
+        .sitara-auth-intro h1 {
+            color: #fff;
+            font-size: clamp(2rem, 3.8vw, 3.25rem);
+            font-weight: 800;
+            letter-spacing: -.03em;
+            line-height: 1.12;
+            margin: .75rem 0 1rem;
+        }
+
+        .sitara-auth-intro p {
+            color: #d9eaf8;
+            font-size: 1rem;
+            line-height: 1.7;
+            margin: 0;
+        }
+
+        .sitara-auth-feature-list {
+            display: grid;
+            gap: .8rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        .sitara-auth-feature-list div {
+            align-items: center;
+            color: #d9eaf8;
+            display: flex;
+            font-size: .85rem;
+            gap: .65rem;
+        }
+
+        .sitara-auth-feature-list span {
+            align-items: center;
+            background: rgba(255, 255, 255, .14);
+            border: 1px solid rgba(255, 255, 255, .18);
+            border-radius: 50%;
+            color: #fff;
+            display: inline-flex;
+            font-size: .68rem;
+            font-weight: 800;
+            height: 1.55rem;
+            justify-content: center;
+            width: 1.55rem;
+        }
+
+        .sitara-auth-form-panel {
+            align-items: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 2rem;
+        }
+
+        .sitara-auth-card {
+            max-width: 25rem;
+            width: 100%;
+        }
+
+        .sitara-auth-card h2 {
+            color: var(--sitara-navy);
+            font-size: 1.7rem;
+            font-weight: 800;
+            margin: .45rem 0;
+        }
+
+        .sitara-auth-card p {
+            color: #627d98;
+            font-size: .88rem;
+        }
+
+        .sitara-auth-card .form-label {
+            color: #334e68;
+            font-size: .83rem;
+            font-weight: 700;
+        }
+
+        .sitara-auth-card .form-control {
+            border-color: #bcccdc;
+            min-height: 2.8rem;
+        }
+
+        .sitara-auth-card .form-control:focus {
+            border-color: #1769aa;
+            box-shadow: 0 0 0 .2rem rgba(23, 105, 170, .14);
+        }
+
+        .sitara-password-field {
+            position: relative;
+        }
+
+        .sitara-password-field .form-control {
+            padding-right: 3rem;
+        }
+
+        .sitara-password-toggle {
+            align-items: center;
+            background: transparent;
+            border: 0;
+            color: #627d98;
+            display: inline-flex;
+            height: 2.8rem;
+            justify-content: center;
+            padding: 0;
+            position: absolute;
+            right: 0;
+            top: 0;
+            width: 2.8rem;
+        }
+
+        .sitara-password-toggle:hover,
+        .sitara-password-toggle:focus-visible {
+            color: #1769aa;
+            outline: none;
+        }
+
+        .sitara-password-toggle svg {
+            fill: none;
+            height: 1.2rem;
+            stroke: currentColor;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            stroke-width: 1.8;
+            width: 1.2rem;
+        }
+
+        .sitara-password-toggle .sitara-eye-closed,
+        .sitara-password-toggle.is-visible .sitara-eye-open {
+            display: none;
+        }
+
+        .sitara-password-toggle.is-visible .sitara-eye-closed {
+            display: block;
+        }
+
+        .sitara-auth-card .btn {
+            font-weight: 700;
+            min-height: 2.8rem;
+        }
+
+        .sitara-auth-help {
+            border-top: 1px solid #d9e2ec;
+            font-size: .75rem !important;
+            line-height: 1.5;
+            margin: 1.5rem 0 0 !important;
+            padding-top: 1rem;
+        }
+
+        .sitara-auth-footer {
+            bottom: 1.5rem;
+            color: #829ab1;
+            font-size: .72rem;
+            margin: 0;
+            position: absolute;
+        }
+
+        @media (max-width: 991.98px) {
+            .sitara-brand { color: #fff; }
+            .sitara-hero { padding: 1.35rem; }
+
+            .sitara-auth-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .sitara-auth-brand-panel {
+                min-height: 19rem;
+                padding: 2rem;
+            }
+
+            .sitara-auth-intro {
+                margin: 3rem 0 0;
+            }
+
+            .sitara-auth-feature-list {
+                display: none;
+            }
+
+            .sitara-auth-form-panel {
+                min-height: calc(100vh - 19rem);
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .sitara-page-heading {
+                display: block;
+            }
+
+            .sitara-page-heading .btn {
+                margin-top: .85rem;
+            }
+
+            .sitara-auth-form-panel {
+                align-items: stretch;
+                padding: 2rem 1.25rem 4rem;
+            }
+
+            .sitara-auth-card {
+                max-width: none;
+            }
+        }

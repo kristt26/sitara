@@ -10,5 +10,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(ActivityTypeSeeder::class);
         $this->call(PaymentMethodSeeder::class);
+        $this->call(AcademicSetupSeeder::class);
+        $this->call(FeeSettingSeeder::class);
     }
 }
