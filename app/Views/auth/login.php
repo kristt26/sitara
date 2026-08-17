@@ -3,8 +3,8 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="description" content="Login administrator SITARA">
-    <title>SITARA | Login Admin</title>
+    <meta name="description" content="Login SITARA untuk admin dan mahasiswa">
+    <title>SITARA | Login</title>
     <link rel="icon" type="image/png" href="<?= base_url('assets/img/logo.png') ?>">
     <link rel="stylesheet" href="<?= base_url('css/volt.css') ?>">
     <link rel="stylesheet" href="<?= base_url('css/styles.css') ?>">
@@ -17,9 +17,9 @@
                 <span class="sitara-brand-name">SITARA<small>Keuangan Akademik</small></span>
             </a>
             <div class="sitara-auth-intro">
-                <span class="sitara-auth-eyebrow">Portal administrasi</span>
-                <h1>Kelola transaksi akademik dengan data yang tertib.</h1>
-                <p>Akses khusus admin untuk pengaturan tarif, tagihan mahasiswa, verifikasi pembayaran, honor dosen, dan audit transaksi.</p>
+                <span class="sitara-auth-eyebrow">Satu pintu akses</span>
+                <h1>Informasi akademik dan pembayaran yang tertib.</h1>
+                <p>Admin mengelola transaksi akademik, sementara mahasiswa dapat memantau kegiatan, tagihan, dan status pembayarannya.</p>
             </div>
             <div class="sitara-auth-feature-list">
                 <div><span>1</span> Data tarif dan komponen terkendali</div>
@@ -31,9 +31,9 @@
         <section class="sitara-auth-form-panel">
             <div class="sitara-auth-card">
                 <div class="mb-4">
-                    <span class="sitara-auth-eyebrow text-primary">Akses staf</span>
+                    <span class="sitara-auth-eyebrow text-primary">Admin &amp; mahasiswa</span>
                     <h2>Masuk ke SITARA</h2>
-                    <p>Gunakan akun admin yang telah diberikan kepada Anda.</p>
+                    <p>Admin menggunakan username/email. Mahasiswa menggunakan NIM dan password yang telah diaktivasi.</p>
                 </div>
 
                 <?php if ($message = session()->getFlashdata('success')): ?>
@@ -59,9 +59,9 @@
                             </button>
                         </div>
                     </div>
-                    <button class="btn btn-primary w-100" type="submit">Masuk ke dashboard</button>
+                    <button class="btn btn-primary w-100" type="submit">Masuk ke SITARA</button>
                 </form>
-                <p class="sitara-auth-help">Akses mahasiswa akan tersedia pada portal terpisah setelah modul tagihan dan unggah bukti pembayaran diaktifkan.</p>
+                <p class="sitara-auth-help">Mahasiswa belum memiliki password? <a href="<?= site_url('aktivasi-mahasiswa') ?>">Aktifkan akun dengan kode aktivasi</a>.</p>
             </div>
             <p class="sitara-auth-footer">&copy; <?= date('Y') ?> SITARA &middot; Sistem Informasi Tarif &amp; Pembayaran Akademik</p>
         </section>

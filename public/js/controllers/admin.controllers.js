@@ -598,6 +598,7 @@ function mahasiswaController($scope, mahasiswaService) {
   $scope.workingId = null;
   $scope.errorMessage = "";
   $scope.successMessage = "";
+  $scope.activationRows = [];
 
   $scope.reset = function () {
     $scope.model = { id: null, nim: "", full_name: "", study_program_id: null, cohort_year: null, email: "", phone: "", status: "AKTIF" };
@@ -618,13 +619,18 @@ function mahasiswaController($scope, mahasiswaService) {
     var payload = angular.copy($scope.model);
     (payload.id ? mahasiswaService.put(payload) : mahasiswaService.post(payload)).then(function (response) {
       $scope.successMessage = response.message || "Data mahasiswa berhasil disimpan.";
-      studentModal().hide(); $scope.reset(); return loadData();
+      studentModal().hide(); $scope.reset(); if (response.data && response.data.activation) showActivations([response.data.activation]); return loadData();
     }).catch(handleError).finally(function () { $scope.saving = false; });
   };
   $scope.activate = function (item) {
     clearMessages(); if (!window.confirm("Aktifkan kembali mahasiswa " + item.full_name + "?")) return;
     $scope.workingId = item.id;
     mahasiswaService.activate(item).then(function (response) { $scope.successMessage = response.message; return loadData(); }).catch(handleError).finally(function () { $scope.workingId = null; });
+  };
+  $scope.issueActivation = function (item) {
+    clearMessages(); if (!window.confirm("Buat kode aktivasi baru untuk " + item.full_name + "? Kode sebelumnya akan dinonaktifkan.")) return;
+    $scope.workingId = item.id;
+    mahasiswaService.activation(item).then(function (response) { $scope.successMessage = response.message; showActivations([response.data]); return loadData(); }).catch(handleError).finally(function () { $scope.workingId = null; });
   };
   $scope.hapus = function (item) {
     clearMessages(); if (!window.confirm("Hapus data mahasiswa " + item.full_name + "? Data yang sudah digunakan pada transaksi tidak dapat dihapus.")) return;
@@ -641,10 +647,17 @@ function mahasiswaController($scope, mahasiswaService) {
     clearMessages(); if (!$scope.importFile) { if (form) form.$setSubmitted(); return; }
     $scope.importing = true;
     mahasiswaService.importFile($scope.importFile).then(function (response) {
-      $scope.successMessage = response.message || "Data mahasiswa berhasil diimpor."; studentImportModal().hide(); return loadData();
+      $scope.successMessage = response.message || "Data mahasiswa berhasil diimpor."; studentImportModal().hide(); var rows = response.data && response.data.activations ? response.data.activations : []; if (rows.length) showActivations(rows); return loadData();
     }).catch(handleError).finally(function () { $scope.importing = false; });
   };
   $scope.activeCount = function () { return $scope.datas.filter(function (item) { return item.status === "AKTIF"; }).length; };
+  $scope.downloadActivations = function () {
+    if (!$scope.activationRows.length) return;
+    var columns = ["NIM","Nama","Username","Kode Aktivasi","Berlaku Sampai"];
+    var lines = [columns].concat($scope.activationRows.map(function (row) { return [row.nim,row.full_name,row.username,row.code,row.expires_at]; })).map(function (row) { return row.map(csvCell).join(","); });
+    var blob = new Blob(["\ufeff" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
+    var url = URL.createObjectURL(blob), link = document.createElement("a"); link.href = url; link.download = "kode-aktivasi-mahasiswa.csv"; document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+  };
 
   function loadData() {
     $scope.loading = true;
@@ -654,6 +667,8 @@ function mahasiswaController($scope, mahasiswaService) {
   }
   function normalizeProgram(item) { item.id = parseInt(item.id, 10); item.is_active = toBoolean(item.is_active); return item; }
   function normalizeStudent(item) { item.id = parseInt(item.id, 10); item.study_program_id = parseInt(item.study_program_id, 10); return item; }
+  function showActivations(rows) { $scope.activationRows = rows || []; bootstrap.Modal.getOrCreateInstance(document.getElementById("studentActivationModal")).show(); }
+  function csvCell(value) { value = String(value == null ? "" : value); if (/^[=+\-@]/.test(value)) value = "'" + value; return '"' + value.replace(/"/g, '""') + '"'; }
   function clearMessages() { $scope.errorMessage = ""; $scope.successMessage = ""; }
   function handleError(error) { $scope.errorMessage = errorMessage(error); }
   function studentModal() { return bootstrap.Modal.getOrCreateInstance(document.getElementById("studentModal")); }

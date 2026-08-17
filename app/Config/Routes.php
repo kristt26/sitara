@@ -5,7 +5,13 @@ use CodeIgniter\Router\RouteCollection;
 /** @var RouteCollection $routes */
 $routes->get('login', 'Auth::login');
 $routes->post('login', 'Auth::attempt', ['filter' => 'csrf']);
-$routes->post('logout', 'Auth::logout', ['filter' => ['adminauth', 'csrf']]);
+$routes->get('aktivasi-mahasiswa', 'StudentActivation::index');
+$routes->post('aktivasi-mahasiswa', 'StudentActivation::activate', ['filter' => 'csrf']);
+$routes->post('logout', 'Auth::logout', ['filter' => ['auth', 'csrf']]);
+
+$routes->group('portal-mahasiswa', ['filter' => 'studentauth'], static function (RouteCollection $routes): void {
+    $routes->get('/', 'StudentPortal::index');
+});
 
 $routes->group('', ['filter' => 'adminauth'], static function (RouteCollection $routes): void {
     $routes->get('/', 'Home::index');
@@ -112,6 +118,7 @@ $routes->group('', ['filter' => 'adminauth'], static function (RouteCollection $
         $routes->post('post', 'Student::create', ['filter' => 'csrf']);
         $routes->put('put/(:num)', 'Student::update/$1', ['filter' => 'csrf']);
         $routes->post('aktif/(:num)', 'Student::activate/$1', ['filter' => 'csrf']);
+        $routes->post('aktivasi/(:num)', 'Student::activation/$1', ['filter' => 'csrf']);
         $routes->delete('delete/(:num)', 'Student::delete/$1', ['filter' => 'csrf']);
     });
 });

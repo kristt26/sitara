@@ -15,6 +15,11 @@ class AdminAuthFilter implements FilterInterface
             return null;
         }
 
+        if (is_array($auth) && ($auth['role'] ?? null) === 'MAHASISWA' && ! empty($auth['id'])) {
+            session()->setFlashdata('error', 'Akun mahasiswa tidak memiliki akses ke halaman administrasi.');
+            return redirect()->to(site_url('portal-mahasiswa'));
+        }
+
         if (str_starts_with(trim($request->getUri()->getPath(), '/'), 'api/')) {
             return service('response')
                 ->setStatusCode(ResponseInterface::HTTP_UNAUTHORIZED)

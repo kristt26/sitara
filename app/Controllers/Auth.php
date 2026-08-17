@@ -8,9 +8,7 @@ class Auth extends BaseController
 {
     public function login(): string|RedirectResponse
     {
-        if ($this->isAuthenticatedAdmin()) {
-            return redirect()->to(site_url('/'));
-        }
+        if (($target = $this->authenticatedTarget()) !== null) return redirect()->to($target);
 
         return view('auth/login', [
             'title' => 'Login Admin',
@@ -44,12 +42,16 @@ class Auth extends BaseController
         if (
             ! is_array($user)
             || ! (int) ($user['is_active'] ?? 0)
-            || ($user['role'] ?? null) !== 'ADMIN'
+            || ! in_array($user['role'] ?? null, ['ADMIN', 'MAHASISWA'], true)
             || ! password_verify($password, (string) ($user['password_hash'] ?? ''))
         ) {
             return redirect()->back()
                 ->withInput()
-                ->with('error', 'Kredensial tidak valid atau akun tidak memiliki akses admin.');
+                ->with('error', 'Username/email atau kata sandi tidak valid, atau akun sedang nonaktif.');
+        }
+
+        if (($user['role'] ?? null) === 'MAHASISWA' && ! $this->hasActiveStudentProfile((int) $user['id'])) {
+            return redirect()->back()->withInput()->with('error', 'Profil mahasiswa tidak ditemukan atau sedang nonaktif. Hubungi administrator.');
         }
 
         session()->regenerate(true);
@@ -65,7 +67,8 @@ class Auth extends BaseController
             'updated_at' => date('Y-m-d H:i:s'),
         ]);
 
-        return redirect()->to(site_url('/'))->with('success', 'Selamat datang kembali, ' . $user['full_name'] . '.');
+        $target = $user['role'] === 'MAHASISWA' ? site_url('portal-mahasiswa') : site_url('/');
+        return redirect()->to($target)->with('success', 'Selamat datang kembali, ' . $user['full_name'] . '.');
     }
 
     public function logout(): RedirectResponse
@@ -75,10 +78,19 @@ class Auth extends BaseController
         return redirect()->to(site_url('login'))->with('success', 'Anda telah keluar dari SITARA.');
     }
 
-    private function isAuthenticatedAdmin(): bool
+    private function authenticatedTarget(): ?string
     {
         $auth = session('auth');
+        if (! is_array($auth) || empty($auth['id'])) return null;
+        return match ($auth['role'] ?? null) {
+            'ADMIN' => site_url('/'),
+            'MAHASISWA' => site_url('portal-mahasiswa'),
+            default => null,
+        };
+    }
 
-        return is_array($auth) && ($auth['role'] ?? null) === 'ADMIN' && ! empty($auth['id']);
+    private function hasActiveStudentProfile(int $userId): bool
+    {
+        return db_connect()->table('students')->where('user_id', $userId)->where('status !=', 'NONAKTIF')->countAllResults() === 1;
     }
 }

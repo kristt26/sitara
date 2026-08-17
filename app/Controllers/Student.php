@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Libraries\StudentSpreadsheetImporter;
 use App\Libraries\StudentTemplateExporter;
+use App\Libraries\StudentAccountService;
 use CodeIgniter\Database\BaseConnection;
 use CodeIgniter\HTTP\ResponseInterface;
 use RuntimeException;
@@ -33,8 +34,9 @@ class Student extends BaseController
     {
         try {
             $students = $this->db->table('students s')
-                ->select('s.id, s.nim, s.full_name, s.study_program_id, s.cohort_year, s.email, s.phone, s.status, s.created_at, s.updated_at, sp.code AS program_code, sp.name AS program_name, sp.degree_level')
+                ->select('s.id, s.user_id, s.nim, s.full_name, s.study_program_id, s.cohort_year, s.email, s.phone, s.status, s.created_at, s.updated_at, sp.code AS program_code, sp.name AS program_name, sp.degree_level, u.username AS account_username, u.is_active AS account_is_active')
                 ->join('study_programs sp', 'sp.id = s.study_program_id')
+                ->join('users u', 'u.id = s.user_id', 'left')
                 ->orderBy('s.full_name', 'ASC')->get()->getResultArray();
             $programs = $this->db->table('study_programs')->select('id, code, name, degree_level, is_active')->orderBy('code')->get()->getResultArray();
 
@@ -56,11 +58,12 @@ class Student extends BaseController
             $this->db->transStart();
             $this->db->table('students')->insert([...$data, 'created_at' => $now, 'updated_at' => $now]);
             $id = (int) $this->db->insertID();
+            $account = (new StudentAccountService($this->db))->provision($id, $this->actorId(), $this->request->getIPAddress());
             $this->writeAudit('STUDENT_CREATED', $id, null, $this->studentById($id));
             $this->db->transComplete();
             $this->assertTransaction('Data mahasiswa belum dapat disimpan.');
 
-            return $this->successResponse($this->studentById($id), 'Data mahasiswa berhasil ditambahkan.', ResponseInterface::HTTP_CREATED);
+            return $this->successResponse([...$this->studentById($id), 'activation' => $account['activation']], 'Data mahasiswa dan akun berhasil ditambahkan. Kode aktivasi hanya ditampilkan satu kali.', ResponseInterface::HTTP_CREATED);
         } catch (Throwable $exception) {
             return $this->errorResponse($exception);
         }
@@ -80,12 +83,14 @@ class Student extends BaseController
             }
             $this->db->transStart();
             $this->db->table('students')->where('id', $id)->update([...$data, 'updated_at' => date('Y-m-d H:i:s')]);
+            $account = (new StudentAccountService($this->db))->provision($id, $this->actorId(), $this->request->getIPAddress());
             $updated = $this->studentById($id);
             $this->writeAudit('STUDENT_UPDATED', $id, $existing, $updated);
             $this->db->transComplete();
             $this->assertTransaction('Perubahan data mahasiswa belum dapat disimpan.');
 
-            return $this->successResponse($updated, 'Data mahasiswa berhasil diperbarui.');
+            $response = $account['activation'] === null ? $updated : [...$updated, 'activation' => $account['activation']];
+            return $this->successResponse($response, $account['created'] ? 'Data mahasiswa diperbarui dan akun berhasil dibuat. Kode aktivasi hanya ditampilkan satu kali.' : 'Data mahasiswa berhasil diperbarui.');
         } catch (Throwable $exception) {
             return $this->errorResponse($exception);
         }
@@ -100,6 +105,7 @@ class Student extends BaseController
             }
             $this->db->transStart();
             $this->db->table('students')->where('id', $id)->update(['status' => 'AKTIF', 'updated_at' => date('Y-m-d H:i:s')]);
+            (new StudentAccountService($this->db))->sync($id);
             $updated = $this->studentById($id);
             $this->writeAudit('STUDENT_ACTIVATED', $id, $student, $updated);
             $this->db->transComplete();
@@ -121,9 +127,11 @@ class Student extends BaseController
             if (($usage = $this->firstUsage($id)) !== null) {
                 throw new RuntimeException('Data mahasiswa tidak dapat dihapus karena sudah digunakan pada ' . $usage . '. Ubah status menjadi NONAKTIF untuk menyimpannya sebagai arsip.');
             }
+            $userId = (int) ($student['user_id'] ?? 0);
             $this->db->transStart();
             $this->db->table('students')->where('id', $id)->delete();
             $this->writeAudit('STUDENT_DELETED', $id, $student, null);
+            if ($userId > 0) $this->db->table('users')->where(['id' => $userId, 'role' => 'MAHASISWA'])->delete();
             $this->db->transComplete();
             $this->assertTransaction('Data mahasiswa belum dapat dihapus.');
 
@@ -152,6 +160,9 @@ class Student extends BaseController
             $seen = [];
             $created = 0;
             $updated = 0;
+            $accountsCreated = 0;
+            $accountsExisting = 0;
+            $activations = [];
             $this->db->transBegin();
             try {
                 foreach ($rows as $row) {
@@ -171,12 +182,22 @@ class Student extends BaseController
                     if ($existing === null) {
                         $this->db->table('students')->insert([...$data, 'created_at' => $now, 'updated_at' => $now]);
                         $id = (int) $this->db->insertID();
+                        $account = (new StudentAccountService($this->db))->provision($id, $this->actorId(), $this->request->getIPAddress());
+                        $accountsCreated++;
+                        if ($account['activation'] !== null) $activations[] = $account['activation'];
                         $this->writeAudit('STUDENT_IMPORTED', $id, null, $this->studentById($id));
                         $created++;
                     } else {
                         $id = (int) $existing['id'];
                         $old = $this->studentById($id);
                         $this->db->table('students')->where('id', $id)->update([...$data, 'updated_at' => $now]);
+                        $account = (new StudentAccountService($this->db))->provision($id, $this->actorId(), $this->request->getIPAddress());
+                        if ($account['created']) {
+                            $accountsCreated++;
+                            if ($account['activation'] !== null) $activations[] = $account['activation'];
+                        } else {
+                            $accountsExisting++;
+                        }
                         $this->writeAudit('STUDENT_IMPORT_UPDATED', $id, $old, $this->studentById($id));
                         $updated++;
                     }
@@ -190,7 +211,7 @@ class Student extends BaseController
                 throw $exception;
             }
 
-            return $this->successResponse(['total' => count($rows), 'created' => $created, 'updated' => $updated], sprintf('Impor selesai: %d mahasiswa baru dan %d mahasiswa diperbarui.', $created, $updated));
+            return $this->successResponse(['total' => count($rows), 'created' => $created, 'updated' => $updated, 'accounts_created' => $accountsCreated, 'accounts_existing' => $accountsExisting, 'activations' => $activations], sprintf('Impor selesai: %d mahasiswa baru, %d diperbarui, dan %d akun dibuat.', $created, $updated, $accountsCreated));
         } catch (Throwable $exception) {
             return $this->errorResponse($exception);
         }
@@ -212,6 +233,28 @@ class Student extends BaseController
             }
 
             return $this->response->download('template-import-mahasiswa.xlsx', $contents);
+        } catch (Throwable $exception) {
+            return $this->errorResponse($exception);
+        }
+    }
+
+    public function activation(int $id): ResponseInterface
+    {
+        try {
+            $student = $this->studentById($id);
+            if ($student === null) return $this->messageResponse('Data mahasiswa tidak ditemukan.', ResponseInterface::HTTP_NOT_FOUND);
+            $this->db->transBegin();
+            try {
+                $service = new StudentAccountService($this->db);
+                $account = $service->provision($id, $this->actorId(), $this->request->getIPAddress());
+                $activation = $account['activation'] ?? $service->issueActivation($id, $this->actorId(), $this->request->getIPAddress());
+                if (! $this->db->transStatus()) throw new RuntimeException('Kode aktivasi belum dapat dibuat.');
+                $this->db->transCommit();
+            } catch (Throwable $exception) {
+                $this->db->transRollback();
+                throw $exception;
+            }
+            return $this->successResponse($activation, 'Kode aktivasi baru dibuat dan berlaku selama 72 jam.');
         } catch (Throwable $exception) {
             return $this->errorResponse($exception);
         }
@@ -300,6 +343,7 @@ class Student extends BaseController
     }
 
     private function assertTransaction(string $message): void { if (! $this->db->transStatus()) throw new RuntimeException($message); }
+    private function actorId(): ?int { $auth = session('auth'); return is_array($auth) ? (int) ($auth['id'] ?? 0) ?: null : null; }
     private function writeAudit(string $action, int $id, ?array $old, ?array $new): void
     {
         $auth = session('auth');

@@ -216,6 +216,7 @@ function mahasiswaService($http, helperServices) {
     post: function (param) { return apiRequest($http, { method: "POST", url: controller + "/post", data: param, headers: mutationHeaders() }); },
     put: function (param) { return apiRequest($http, { method: "PUT", url: controller + "/put/" + param.id, data: param, headers: mutationHeaders() }); },
     activate: function (param) { return apiRequest($http, { method: "POST", url: controller + "/aktif/" + param.id, data: {}, headers: mutationHeaders() }); },
+    activation: function (param) { return apiRequest($http, { method: "POST", url: controller + "/aktivasi/" + param.id, data: {}, headers: mutationHeaders() }); },
     deleted: function (param) { return apiRequest($http, { method: "DELETE", url: controller + "/delete/" + param.id, headers: mutationHeaders() }); },
     importFile: function (file) {
       var formData = new FormData();
