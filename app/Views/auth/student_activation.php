@@ -13,7 +13,7 @@
 <main class="sitara-auth-layout">
     <section class="sitara-auth-brand-panel">
         <a class="sitara-brand" href="<?= site_url('login') ?>"><img class="sitara-mark" src="<?= base_url('assets/img/logo.png') ?>" alt="Logo Universitas Sepuluh Nopember Papua"><span class="sitara-brand-name">SITARA<small>Keuangan Akademik</small></span></a>
-        <div class="sitara-auth-intro"><span class="sitara-auth-eyebrow">Aktivasi mahasiswa</span><h1>Buat password akun Anda.</h1><p>Gunakan username dan kode aktivasi yang diberikan administrator. Kode hanya berlaku 72 jam dan hanya dapat digunakan satu kali.</p></div>
+        <div class="sitara-auth-intro"><span class="sitara-auth-eyebrow">Aktivasi mahasiswa</span><h1>Buat password akun Anda.</h1><p>Gunakan username dan kode aktivasi yang dikirim ke email Anda. Kode tidak memiliki batas waktu, tetapi hanya dapat digunakan satu kali.</p></div>
     </section>
     <section class="sitara-auth-form-panel">
         <div class="sitara-auth-card">

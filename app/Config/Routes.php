@@ -11,6 +11,7 @@ $routes->post('logout', 'Auth::logout', ['filter' => ['auth', 'csrf']]);
 
 $routes->group('portal-mahasiswa', ['filter' => 'studentauth'], static function (RouteCollection $routes): void {
     $routes->get('/', 'StudentPortal::index');
+    $routes->post('pembayaran', 'StudentPortal::submitPayment', ['filter' => 'csrf']);
 });
 
 $routes->group('', ['filter' => 'adminauth'], static function (RouteCollection $routes): void {
@@ -75,13 +76,19 @@ $routes->group('', ['filter' => 'adminauth'], static function (RouteCollection $
     $routes->group('kegiatan-mahasiswa', static function (RouteCollection $routes): void {
         $routes->get('/', 'StudentActivity::index'); $routes->get('read', 'StudentActivity::read'); $routes->get('detail/(:num)', 'StudentActivity::detail/$1'); $routes->get('template', 'StudentActivity::template'); $routes->post('import', 'StudentActivity::import', ['filter'=>'csrf']); $routes->post('post', 'StudentActivity::create', ['filter'=>'csrf']);
         $routes->put('put/(:num)', 'StudentActivity::update/$1', ['filter'=>'csrf']); $routes->delete('delete/(:num)', 'StudentActivity::delete/$1', ['filter'=>'csrf']);
+        $routes->get('dokumen/(:num)/(:segment)', 'StudentActivity::document/$1/$2');
+        $routes->post('dokumen/tim', 'StudentActivity::documentTeam', ['filter'=>'csrf']);
+    });
+    $routes->group('template-dokumen', static function (RouteCollection $routes): void {
+        $routes->get('/', 'DocumentTemplate::index'); $routes->get('read', 'DocumentTemplate::read'); $routes->get('download/(:num)', 'DocumentTemplate::download/$1');
+        $routes->post('upload', 'DocumentTemplate::upload', ['filter'=>'csrf']); $routes->put('fields/(:num)', 'DocumentTemplate::saveFields/$1', ['filter'=>'csrf']);
     });
     $routes->group('keuangan/tagihan', static function (RouteCollection $routes): void {
         $routes->get('/', 'StudentBill::index'); $routes->get('read', 'StudentBill::read'); $routes->get('preview/(:num)', 'StudentBill::preview/$1'); $routes->get('detail/(:num)', 'StudentBill::detail/$1');
         $routes->post('post', 'StudentBill::create', ['filter'=>'csrf']);
     });
     $routes->group('keuangan/verifikasi', static function (RouteCollection $routes): void {
-        $routes->get('/', 'PaymentVerification::index'); $routes->get('read', 'PaymentVerification::read'); $routes->post('post', 'PaymentVerification::create', ['filter'=>'csrf']);
+        $routes->get('/', 'PaymentVerification::index'); $routes->get('read', 'PaymentVerification::read'); $routes->get('bukti/(:num)', 'PaymentVerification::proof/$1'); $routes->post('post', 'PaymentVerification::create', ['filter'=>'csrf']);
         $routes->post('terima/(:num)', 'PaymentVerification::verify/$1', ['filter'=>'csrf']); $routes->post('tolak/(:num)', 'PaymentVerification::reject/$1', ['filter'=>'csrf']);
     });
     $routes->group('honor/tarif', static function (RouteCollection $routes): void {

@@ -67,3 +67,16 @@
 #--------------------------------------------------------------------
 
 # logger.threshold = 4
+
+#--------------------------------------------------------------------
+# EMAIL SMTP (isi pada file .env, jangan menyimpan password di Git)
+#--------------------------------------------------------------------
+# email.protocol = smtp
+# email.SMTPHost = mail.example.ac.id
+# email.SMTPUser = no-reply@example.ac.id
+# email.SMTPPass = 'ganti-dengan-password-smtp'
+# email.SMTPPort = 465
+# email.SMTPCrypto = ssl
+# email.fromEmail = no-reply@example.ac.id
+# email.fromName = "SITARA - Jangan Balas"
+# email.mailType = html

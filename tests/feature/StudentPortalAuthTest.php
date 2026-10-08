@@ -3,14 +3,16 @@
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\FeatureTestTrait;
 use CodeIgniter\Test\TestResponse;
+use CodeIgniter\HTTP\Request;
 
 /** @internal */
 final class StudentPortalAuthTest extends CIUnitTestCase
 {
-    use FeatureTestTrait;
+    use FeatureTestTrait { populateGlobals as private populateFeatureGlobals; }
 
     private int $studentUserId;
     private int $studentId;
+    private array $testFiles = [];
 
     protected function setUp(): void
     {
@@ -27,10 +29,11 @@ final class StudentPortalAuthTest extends CIUnitTestCase
         $this->table($forge, 'academic_years', ['code'=>['type'=>'VARCHAR','constraint'=>20]]);
         $this->table($forge, 'academic_periods', ['academic_year_id'=>['type'=>'INTEGER'], 'semester_code'=>['type'=>'VARCHAR','constraint'=>20]]);
         $this->table($forge, 'academic_activities', ['activity_no'=>['type'=>'VARCHAR','constraint'=>50], 'student_id'=>['type'=>'INTEGER'], 'academic_period_id'=>['type'=>'INTEGER'], 'activity_type_id'=>['type'=>'INTEGER'], 'exam_path_id'=>['type'=>'INTEGER'], 'attempt_no'=>['type'=>'INTEGER'], 'title'=>['type'=>'VARCHAR','constraint'=>500,'null'=>true], 'scheduled_at'=>['type'=>'DATETIME','null'=>true], 'completed_at'=>['type'=>'DATETIME','null'=>true], 'status'=>['type'=>'VARCHAR','constraint'=>20], 'created_at'=>['type'=>'DATETIME','null'=>true]]);
-        $this->table($forge, 'student_bills', ['bill_no'=>['type'=>'VARCHAR','constraint'=>50], 'student_id'=>['type'=>'INTEGER'], 'activity_type_id'=>['type'=>'INTEGER'], 'exam_path_id'=>['type'=>'INTEGER'], 'academic_period_id'=>['type'=>'INTEGER'], 'bill_date'=>['type'=>'DATE'], 'due_date'=>['type'=>'DATE','null'=>true], 'total_amount'=>['type'=>'DECIMAL','constraint'=>'15,2'], 'status'=>['type'=>'VARCHAR','constraint'=>25]]);
-        $this->table($forge, 'payment_methods', ['name'=>['type'=>'VARCHAR','constraint'=>100]]);
-        $this->table($forge, 'student_payments', ['payment_no'=>['type'=>'VARCHAR','constraint'=>50], 'student_id'=>['type'=>'INTEGER'], 'payment_method_id'=>['type'=>'INTEGER'], 'payment_date'=>['type'=>'DATETIME'], 'amount'=>['type'=>'DECIMAL','constraint'=>'15,2'], 'reference_no'=>['type'=>'VARCHAR','constraint'=>100,'null'=>true], 'status'=>['type'=>'VARCHAR','constraint'=>20]]);
-        $this->table($forge, 'student_payment_allocations', ['student_payment_id'=>['type'=>'INTEGER'], 'student_bill_id'=>['type'=>'INTEGER'], 'allocated_amount'=>['type'=>'DECIMAL','constraint'=>'15,2']]);
+        $this->table($forge, 'student_bills', ['bill_no'=>['type'=>'VARCHAR','constraint'=>50], 'student_id'=>['type'=>'INTEGER'], 'activity_type_id'=>['type'=>'INTEGER'], 'exam_path_id'=>['type'=>'INTEGER'], 'academic_period_id'=>['type'=>'INTEGER'], 'bill_date'=>['type'=>'DATE'], 'due_date'=>['type'=>'DATE','null'=>true], 'total_amount'=>['type'=>'DECIMAL','constraint'=>'15,2'], 'status'=>['type'=>'VARCHAR','constraint'=>25], 'updated_at'=>['type'=>'DATETIME','null'=>true]]);
+        $this->table($forge, 'payment_methods', ['code'=>['type'=>'VARCHAR','constraint'=>30], 'name'=>['type'=>'VARCHAR','constraint'=>100], 'is_active'=>['type'=>'INTEGER','default'=>1]]);
+        $this->table($forge, 'student_payments', ['payment_no'=>['type'=>'VARCHAR','constraint'=>50], 'student_id'=>['type'=>'INTEGER'], 'payment_method_id'=>['type'=>'INTEGER'], 'payment_date'=>['type'=>'DATETIME'], 'amount'=>['type'=>'DECIMAL','constraint'=>'15,2'], 'reference_no'=>['type'=>'VARCHAR','constraint'=>100,'null'=>true], 'proof_file_path'=>['type'=>'TEXT','null'=>true], 'status'=>['type'=>'VARCHAR','constraint'=>20], 'notes'=>['type'=>'TEXT','null'=>true], 'created_at'=>['type'=>'DATETIME','null'=>true], 'updated_at'=>['type'=>'DATETIME','null'=>true]]);
+        $this->table($forge, 'student_payment_allocations', ['student_payment_id'=>['type'=>'INTEGER'], 'student_bill_id'=>['type'=>'INTEGER'], 'allocated_amount'=>['type'=>'DECIMAL','constraint'=>'15,2'], 'created_at'=>['type'=>'DATETIME','null'=>true]]);
+        $this->table($forge, 'audit_logs', ['user_id'=>['type'=>'INTEGER','null'=>true], 'action'=>['type'=>'VARCHAR','constraint'=>100], 'entity_type'=>['type'=>'VARCHAR','constraint'=>100], 'entity_id'=>['type'=>'INTEGER','null'=>true], 'old_values'=>['type'=>'TEXT','null'=>true], 'new_values'=>['type'=>'TEXT','null'=>true], 'ip_address'=>['type'=>'VARCHAR','constraint'=>45,'null'=>true], 'created_at'=>['type'=>'DATETIME','null'=>true]]);
         $this->seed();
     }
 
@@ -82,6 +85,33 @@ final class StudentPortalAuthTest extends CIUnitTestCase
         $this->assertNull($this->db->table('users')->where('id', $this->studentUserId)->get()->getRow('last_login_at'));
     }
 
+    public function testStudentCanSubmitPaymentProofAndAdminCanViewIt(): void
+    {
+        $proof = FCPATH . 'assets/img/logo.png';
+        $this->testFiles = ['proof_file' => ['name'=>'proof.png', 'type'=>'image/png', 'tmp_name'=>$proof, 'error'=>UPLOAD_ERR_OK, 'size'=>filesize($proof)]];
+        $result = $this->studentRequest()->withHeaders([config('Security')->headerName=>csrf_hash()])->post('/portal-mahasiswa/pembayaran', [
+            'student_bill_id' => 1,
+            'payment_method_id' => 1,
+            'amount' => 500000,
+            'reference_no' => 'TEST-001',
+            'notes' => 'Bukti pembayaran pengujian',
+        ]);
+        $this->testFiles = [];
+        $result->assertRedirectTo(site_url('portal-mahasiswa'));
+        $payment = $this->db->table('student_payments')->where('status','MENUNGGU')->orderBy('id','DESC')->get()->getRowArray();
+        $this->assertNotEmpty($payment, 'redirect=' . $result->getRedirectUrl() . ' error=' . (string) session('error'));
+        $this->assertNotEmpty($payment['proof_file_path'], 'payment=' . json_encode($payment));
+        $this->assertStringStartsWith('payment-proofs/', (string)$payment['proof_file_path']);
+        $stored = WRITEPATH . 'uploads/' . $payment['proof_file_path'];
+        $this->assertFileExists($stored);
+        $this->assertSame(1, $this->db->table('audit_logs')->where('action','STUDENT_PAYMENT_SUBMITTED')->countAllResults());
+
+        $admin = $this->withSession(['auth'=>['id'=>1,'username'=>'admin','full_name'=>'Admin','role'=>'ADMIN']])->get('/keuangan/verifikasi/bukti/' . $payment['id']);
+        $admin->assertStatus(200);
+        $this->assertNotEmpty($admin->getBody());
+        @unlink($stored);
+    }
+
     private function seed(): void
     {
         $now = '2026-08-14 10:00:00';
@@ -99,7 +129,7 @@ final class StudentPortalAuthTest extends CIUnitTestCase
         $this->db->table('academic_activities')->insert(['activity_no'=>'KGT-BUDI','student_id'=>$otherStudent,'academic_period_id'=>$period,'activity_type_id'=>$type,'exam_path_id'=>$path,'attempt_no'=>1,'title'=>'Kegiatan Budi','status'=>'DRAFT','created_at'=>$now]);
         $this->db->table('student_bills')->insert(['bill_no'=>'INV-ANI','student_id'=>$this->studentId,'activity_type_id'=>$type,'exam_path_id'=>$path,'academic_period_id'=>$period,'bill_date'=>'2026-08-14','due_date'=>'2026-08-31','total_amount'=>1000000,'status'=>'SEBAGIAN']); $bill=(int)$this->db->insertID();
         $this->db->table('student_bills')->insert(['bill_no'=>'INV-BUDI','student_id'=>$otherStudent,'activity_type_id'=>$type,'exam_path_id'=>$path,'academic_period_id'=>$period,'bill_date'=>'2026-08-14','total_amount'=>2000000,'status'=>'BELUM_DIBAYAR']);
-        $this->db->table('payment_methods')->insert(['name'=>'Transfer Bank']); $method=(int)$this->db->insertID();
+        $this->db->table('payment_methods')->insert(['code'=>'TRF','name'=>'Transfer Bank','is_active'=>1]); $method=(int)$this->db->insertID();
         $this->db->table('student_payments')->insert(['payment_no'=>'PAY-ANI','student_id'=>$this->studentId,'payment_method_id'=>$method,'payment_date'=>'2026-08-15 10:00:00','amount'=>250000,'reference_no'=>'REF-ANI','status'=>'DITERIMA']); $payment=(int)$this->db->insertID();
         $this->db->table('student_payment_allocations')->insert(['student_payment_id'=>$payment,'student_bill_id'=>$bill,'allocated_amount'=>250000]);
     }
@@ -113,7 +143,7 @@ final class StudentPortalAuthTest extends CIUnitTestCase
 
     private function tables(): array
     {
-        return ['student_payment_allocations','student_payments','payment_methods','student_bills','academic_activities','academic_periods','academic_years','exam_paths','activity_types','students','study_programs','users'];
+        return ['audit_logs','student_payment_allocations','student_payments','payment_methods','student_bills','academic_activities','academic_periods','academic_years','exam_paths','activity_types','students','study_programs','users'];
     }
 
     private function login(string $identity, string $password): TestResponse
@@ -125,5 +155,12 @@ final class StudentPortalAuthTest extends CIUnitTestCase
     private function studentRequest(): self
     {
         return $this->withSession(['auth'=>['id'=>$this->studentUserId,'username'=>'2026001','full_name'=>'Ani Portal','role'=>'MAHASISWA']]);
+    }
+
+    protected function populateGlobals(string $name, Request $request, ?array $params = null): Request
+    {
+        $request = $this->populateFeatureGlobals($name, $request, $params);
+        service('superglobals')->setFilesArray($this->testFiles);
+        return $request;
     }
 }

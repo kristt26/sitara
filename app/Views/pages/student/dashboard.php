@@ -24,6 +24,22 @@ $statusTone = static fn (string $status): string => in_array($status, ['LUNAS', 
     <div class="col-12 col-sm-6 col-xl-3"><article class="card student-summary"><div class="card-body"><div class="student-summary-label">Menunggu verifikasi</div><div class="student-summary-value"><?= esc((string) $summary['pending_payment_count']) ?></div><small class="text-gray-600">Catatan pembayaran</small></div></article></div>
 </section>
 
+<section class="card student-section-card mb-4" id="upload-pembayaran">
+    <header class="card-header"><h2 class="sitara-card-title">Kirim bukti pembayaran</h2><p class="sitara-card-subtitle">Pilih tagihan, isi nominal pembayaran, lalu unggah bukti untuk diverifikasi admin.</p></header>
+    <form action="<?= site_url('portal-mahasiswa/pembayaran') ?>" method="post" enctype="multipart/form-data">
+        <?= csrf_field() ?>
+        <div class="card-body"><div class="row g-3">
+            <div class="col-12 col-lg-6"><label class="form-label" for="student_payment_bill">Tagihan <span class="text-danger">*</span></label><select class="form-select" id="student_payment_bill" name="student_bill_id" required><option value="">Pilih tagihan</option><?php foreach ($bills as $bill): ?><?php if ($bill['status'] !== 'LUNAS'): ?><option value="<?= esc((string) $bill['id']) ?>" <?= old('student_bill_id') === (string) $bill['id'] ? 'selected' : '' ?>><?= esc($bill['bill_no'] . ' — ' . $bill['activity_name'] . ' (sisa ' . $rupiah(max(0, (float) $bill['total_amount'] - (float) $bill['paid_amount'])) . ')') ?></option><?php endif; ?><?php endforeach; ?></select></div>
+            <div class="col-12 col-lg-6"><label class="form-label" for="student_payment_method">Metode pembayaran <span class="text-danger">*</span></label><select class="form-select" id="student_payment_method" name="payment_method_id" required><option value="">Pilih metode</option><?php foreach ($paymentMethods as $method): ?><option value="<?= esc((string) $method['id']) ?>" <?= old('payment_method_id') === (string) $method['id'] ? 'selected' : '' ?>><?= esc($method['code'] . ' — ' . $method['name']) ?></option><?php endforeach; ?></select></div>
+            <div class="col-12 col-md-6"><label class="form-label" for="student_payment_amount">Nominal dibayar <span class="text-danger">*</span></label><input class="form-control" id="student_payment_amount" name="amount" type="number" min="1" step="0.01" value="<?= esc(old('amount')) ?>" required></div>
+            <div class="col-12 col-md-6"><label class="form-label" for="student_payment_reference">Nomor referensi</label><input class="form-control" id="student_payment_reference" name="reference_no" maxlength="100" value="<?= esc(old('reference_no')) ?>"><small class="text-gray-600">Kosongkan jika pembayaran tunai.</small></div>
+            <div class="col-12"><label class="form-label" for="student_payment_proof">Bukti pembayaran <span class="text-danger">*</span></label><input class="form-control" id="student_payment_proof" name="proof_file" type="file" accept=".pdf,.jpg,.jpeg,.png" required><small class="text-gray-600">Format PDF, JPG, atau PNG. Maksimal 5 MB.</small></div>
+            <div class="col-12"><label class="form-label" for="student_payment_notes">Catatan</label><textarea class="form-control" id="student_payment_notes" name="notes" rows="2" maxlength="1000"><?= esc(old('notes')) ?></textarea></div>
+        </div></div>
+        <div class="card-footer bg-white text-end"><button class="btn btn-primary" type="submit">Kirim untuk verifikasi</button></div>
+    </form>
+</section>
+
 <section class="card student-section-card mb-4">
     <header class="card-header"><h2 class="sitara-card-title">Kegiatan akademik</h2><p class="sitara-card-subtitle">Jadwal dan status kegiatan yang terdaftar atas nama Anda.</p></header>
     <div class="table-responsive"><table class="table sitara-table mb-0"><thead><tr><th>Kegiatan</th><th>Periode</th><th>Jalur</th><th>Jadwal</th><th>Status</th></tr></thead><tbody>

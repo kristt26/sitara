@@ -26,6 +26,7 @@ $navGroups = [
         'title' => 'Keuangan Mahasiswa',
         'items' => [
             ['key' => 'student-activities', 'route' => 'kegiatan-mahasiswa', 'label' => 'Kegiatan Mahasiswa'],
+            ['key' => 'document-templates', 'route' => 'template-dokumen', 'label' => 'Template Dokumen'],
             ['key' => 'fees', 'route' => 'keuangan/tarif', 'label' => 'Tarif & Komponen'],
             ['key' => 'bills', 'route' => 'keuangan/tagihan', 'label' => 'Tagihan Mahasiswa'],
             ['key' => 'verification', 'route' => 'keuangan/verifikasi', 'label' => 'Verifikasi Pembayaran'],
@@ -49,6 +50,19 @@ $navGroups = [
         ],
     ],
 ];
+$userRole = (string) (is_array(session('auth')) ? (session('auth')['role'] ?? 'ADMIN') : 'ADMIN');
+$visibleKeys = match ($userRole) {
+    'PRODI' => ['dashboard', 'students', 'lecturers', 'activity-rules', 'student-activities', 'document-templates'],
+    'KEUANGAN' => ['dashboard', 'periods', 'payment-methods', 'fees', 'bills', 'verification', 'honor-rates', 'honor-entitlements', 'honor-payments'],
+    default => null,
+};
+if ($visibleKeys !== null) {
+    foreach ($navGroups as &$group) {
+        $group['items'] = array_values(array_filter($group['items'], static fn (array $item): bool => in_array($item['key'], $visibleKeys, true)));
+    }
+    unset($group);
+    $navGroups = array_values(array_filter($navGroups, static fn (array $group): bool => $group['items'] !== []));
+}
 ?>
 <nav id="sidebarMenu" class="sidebar d-lg-block text-white collapse" data-simplebar>
     <div class="sidebar-inner px-3 pt-4">

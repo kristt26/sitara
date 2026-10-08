@@ -2,6 +2,8 @@
 $currentUser = session('auth');
 $currentUser = is_array($currentUser) ? $currentUser : [];
 $currentUserName = (string) ($currentUser['full_name'] ?? 'Administrator Keuangan');
+$currentUserRole = (string) ($currentUser['role'] ?? 'ADMIN');
+$roleLabel = ['ADMIN' => 'Administrator', 'PRODI' => 'Operator Prodi', 'KEUANGAN' => 'Staf Keuangan'][$currentUserRole] ?? $currentUserRole;
 $initials = preg_split('/\s+/', trim($currentUserName)) ?: [];
 $initials = implode('', array_map(static fn(string $part): string => strtoupper(substr($part, 0, 1)), array_slice($initials, 0, 2)));
 ?>
@@ -48,7 +50,7 @@ $initials = implode('', array_map(static fn(string $part): string => strtoupper(
                     <span class="sitara-live"><?= ($live ?? false) ? 'Data tersambung' : 'Mode pratinjau' ?></span>
                     <div class="d-none d-sm-block text-end">
                         <div class="small fw-bold text-gray-700"><?= esc($currentUserName) ?></div>
-                        <div class="small text-gray-500">Admin keuangan</div>
+                        <div class="small text-gray-500"><?= esc($roleLabel) ?></div>
                     </div>
                     <span class="avatar rounded-circle bg-primary text-white"><?= esc($initials !== '' ? $initials : 'AD') ?></span>
                 </div>
@@ -65,7 +67,7 @@ $initials = implode('', array_map(static fn(string $part): string => strtoupper(
 
             <footer class="sitara-footer d-flex flex-column flex-sm-row gap-2 justify-content-between">
                 <span>&copy; <?= date('Y') ?> SITARA - Sistem Informasi Tarif &amp; Pembayaran Akademik</span>
-                <span>Dashboard staf keuangan</span>
+                <span>Dashboard <?= esc(strtolower($roleLabel)) ?></span>
             </footer>
         </div>
     </main>

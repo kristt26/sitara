@@ -1,6 +1,13 @@
 # Disable directory browsing
 Options -Indexes
 
+# Template DOCX dapat berisi gambar dan tabel sehingga ukurannya bisa lebih dari 2 MB.
+# Pengaturan ini berlaku pada Apache mod_php; PHP-FPM menggunakan public/.user.ini.
+<IfModule mod_php.c>
+    php_value upload_max_filesize 12M
+    php_value post_max_size 16M
+</IfModule>
+
 # ----------------------------------------------------------------------
 # Rewrite engine
 # ----------------------------------------------------------------------

@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Libraries\StudentSpreadsheetImporter;
 use App\Libraries\StudentTemplateExporter;
 use App\Libraries\StudentAccountService;
+use App\Libraries\StudentActivationMailer;
 use CodeIgniter\Database\BaseConnection;
 use CodeIgniter\HTTP\ResponseInterface;
 use RuntimeException;
@@ -33,12 +34,15 @@ class Student extends BaseController
     public function read(): ResponseInterface
     {
         try {
-            $students = $this->db->table('students s')
+            $studentQuery = $this->db->table('students s')
                 ->select('s.id, s.user_id, s.nim, s.full_name, s.study_program_id, s.cohort_year, s.email, s.phone, s.status, s.created_at, s.updated_at, sp.code AS program_code, sp.name AS program_name, sp.degree_level, u.username AS account_username, u.is_active AS account_is_active')
                 ->join('study_programs sp', 'sp.id = s.study_program_id')
-                ->join('users u', 'u.id = s.user_id', 'left')
-                ->orderBy('s.full_name', 'ASC')->get()->getResultArray();
-            $programs = $this->db->table('study_programs')->select('id, code, name, degree_level, is_active')->orderBy('code')->get()->getResultArray();
+                ->join('users u', 'u.id = s.user_id', 'left');
+            $this->applyProgramScope($studentQuery, 's.study_program_id');
+            $students = $studentQuery->orderBy('s.full_name', 'ASC')->get()->getResultArray();
+            $programQuery = $this->db->table('study_programs')->select('id, code, name, degree_level, is_active');
+            $this->applyProgramScope($programQuery, 'id');
+            $programs = $programQuery->orderBy('code')->get()->getResultArray();
 
             return $this->successResponse(['students' => $students, 'programs' => $programs]);
         } catch (Throwable $exception) {
@@ -63,7 +67,8 @@ class Student extends BaseController
             $this->db->transComplete();
             $this->assertTransaction('Data mahasiswa belum dapat disimpan.');
 
-            return $this->successResponse([...$this->studentById($id), 'activation' => $account['activation']], 'Data mahasiswa dan akun berhasil ditambahkan. Kode aktivasi hanya ditampilkan satu kali.', ResponseInterface::HTTP_CREATED);
+            $delivery = $this->sendActivationEmails([$account['activation']]);
+            return $this->successResponse([...$this->studentById($id), 'activation_email' => $delivery], $this->deliveryMessage('Data mahasiswa dan akun berhasil ditambahkan.', $delivery), ResponseInterface::HTTP_CREATED);
         } catch (Throwable $exception) {
             return $this->errorResponse($exception);
         }
@@ -89,8 +94,9 @@ class Student extends BaseController
             $this->db->transComplete();
             $this->assertTransaction('Perubahan data mahasiswa belum dapat disimpan.');
 
-            $response = $account['activation'] === null ? $updated : [...$updated, 'activation' => $account['activation']];
-            return $this->successResponse($response, $account['created'] ? 'Data mahasiswa diperbarui dan akun berhasil dibuat. Kode aktivasi hanya ditampilkan satu kali.' : 'Data mahasiswa berhasil diperbarui.');
+            $delivery = $account['activation'] === null ? null : $this->sendActivationEmails([$account['activation']]);
+            $response = $delivery === null ? $updated : [...$updated, 'activation_email' => $delivery];
+            return $this->successResponse($response, $account['created'] ? $this->deliveryMessage('Data mahasiswa diperbarui dan akun berhasil dibuat.', $delivery) : 'Data mahasiswa berhasil diperbarui.');
         } catch (Throwable $exception) {
             return $this->errorResponse($exception);
         }
@@ -211,7 +217,8 @@ class Student extends BaseController
                 throw $exception;
             }
 
-            return $this->successResponse(['total' => count($rows), 'created' => $created, 'updated' => $updated, 'accounts_created' => $accountsCreated, 'accounts_existing' => $accountsExisting, 'activations' => $activations], sprintf('Impor selesai: %d mahasiswa baru, %d diperbarui, dan %d akun dibuat.', $created, $updated, $accountsCreated));
+            $delivery = $this->sendActivationEmails($activations);
+            return $this->successResponse(['total' => count($rows), 'created' => $created, 'updated' => $updated, 'accounts_created' => $accountsCreated, 'accounts_existing' => $accountsExisting, 'activation_email' => $delivery], $this->deliveryMessage(sprintf('Impor selesai: %d mahasiswa baru, %d diperbarui, dan %d akun dibuat.', $created, $updated, $accountsCreated), $delivery));
         } catch (Throwable $exception) {
             return $this->errorResponse($exception);
         }
@@ -220,11 +227,8 @@ class Student extends BaseController
     public function template(): ResponseInterface
     {
         try {
-            $programs = $this->db->table('study_programs')
-                ->select('code, name, degree_level, is_active')
-                ->orderBy('code', 'ASC')
-                ->get()
-                ->getResultArray();
+            $programQuery = $this->db->table('study_programs')->select('code, name, degree_level, is_active'); $this->applyProgramScope($programQuery, 'id');
+            $programs = $programQuery->orderBy('code', 'ASC')->get()->getResultArray();
             $temporary = (new StudentTemplateExporter())->export($programs);
             $contents = file_get_contents($temporary);
             @unlink($temporary);
@@ -254,7 +258,8 @@ class Student extends BaseController
                 $this->db->transRollback();
                 throw $exception;
             }
-            return $this->successResponse($activation, 'Kode aktivasi baru dibuat dan berlaku selama 72 jam.');
+            $delivery = $this->sendActivationEmails([$activation]);
+            return $this->successResponse(['email' => $activation['email'], 'activation_email' => $delivery], $this->deliveryMessage('Kode aktivasi baru dibuat.', $delivery));
         } catch (Throwable $exception) {
             return $this->errorResponse($exception);
         }
@@ -303,8 +308,8 @@ class Student extends BaseController
         if ($year !== null && ($year < 1900 || $year > ((int) date('Y') + 1))) {
             throw new RuntimeException($prefix . 'tahun angkatan tidak valid.');
         }
-        if ($data['email'] !== null && filter_var($data['email'], FILTER_VALIDATE_EMAIL) === false) {
-            throw new RuntimeException($prefix . 'alamat email tidak valid.');
+        if ($data['email'] === null || filter_var($data['email'], FILTER_VALIDATE_EMAIL) === false) {
+            throw new RuntimeException($prefix . 'alamat email wajib diisi dan harus valid untuk pengiriman kode aktivasi.');
         }
         if ($data['phone'] !== null && ! preg_match('/^[0-9+() .-]{6,30}$/', $data['phone'])) {
             throw new RuntimeException($prefix . 'nomor telepon tidak valid.');
@@ -317,13 +322,14 @@ class Student extends BaseController
     private function programMap(): array
     {
         $map = [];
-        foreach ($this->db->table('study_programs')->select('id, code')->where('is_active', 1)->get()->getResultArray() as $program) {
+        $query = $this->db->table('study_programs')->select('id, code')->where('is_active', 1); $this->applyProgramScope($query, 'id');
+        foreach ($query->get()->getResultArray() as $program) {
             $map[strtoupper($program['code'])] = (int) $program['id'];
         }
         return $map;
     }
 
-    private function activeProgramExists(int $id): bool { return $id > 0 && $this->db->table('study_programs')->where(['id' => $id, 'is_active' => 1])->countAllResults() > 0; }
+    private function activeProgramExists(int $id): bool { $query = $this->db->table('study_programs')->where(['id' => $id, 'is_active' => 1]); $this->applyProgramScope($query, 'id'); return $id > 0 && $query->countAllResults() > 0; }
     private function nimExists(string $nim, ?int $exceptId = null): bool { $builder = $this->db->table('students')->where('nim', $nim); if ($exceptId !== null) $builder->where('id !=', $exceptId); return $builder->countAllResults() > 0; }
     private function nullableString(mixed $value): ?string { $value = trim((string) $value); return $value === '' ? null : $value; }
     private function nullableLowercaseString(mixed $value): ?string { $value = $this->nullableString($value); return $value === null ? null : strtolower($value); }
@@ -331,7 +337,7 @@ class Student extends BaseController
 
     private function studentById(int $id): ?array
     {
-        return $this->db->table('students s')->select('s.*, sp.code AS program_code, sp.name AS program_name, sp.degree_level')->join('study_programs sp', 'sp.id = s.study_program_id')->where('s.id', $id)->get()->getRowArray();
+        $query = $this->db->table('students s')->select('s.*, sp.code AS program_code, sp.name AS program_name, sp.degree_level')->join('study_programs sp', 'sp.id = s.study_program_id')->where('s.id', $id); $this->applyProgramScope($query, 's.study_program_id'); return $query->get()->getRowArray();
     }
 
     private function firstUsage(int $id): ?string
@@ -342,7 +348,41 @@ class Student extends BaseController
         return null;
     }
 
+    private function applyProgramScope($query, string $column): void
+    {
+        $auth = session('auth');
+        if (! is_array($auth) || ($auth['role'] ?? null) !== 'PRODI') return;
+        if (! $this->db->tableExists('user_study_programs')) { $query->where($column, 0); return; }
+        $ids = array_column($this->db->table('user_study_programs')->select('study_program_id')->where('user_id', (int) ($auth['id'] ?? 0))->get()->getResultArray(), 'study_program_id');
+        $query->whereIn($column, $ids === [] ? [0] : array_map('intval', $ids));
+    }
+
     private function assertTransaction(string $message): void { if (! $this->db->transStatus()) throw new RuntimeException($message); }
+    /** @param list<array|null> $activations */
+    private function sendActivationEmails(array $activations): array
+    {
+        $sent = [];
+        $failed = [];
+        $mailer = new StudentActivationMailer();
+        foreach ($activations as $activation) {
+            if (! is_array($activation)) continue;
+            try {
+                $mailer->send($activation);
+                $sent[] = $activation['email'];
+            } catch (Throwable $exception) {
+                log_message('error', 'Pengiriman aktivasi mahasiswa gagal untuk {email}: {message}', ['email' => $activation['email'] ?? '-', 'message' => $exception->getMessage()]);
+                $failed[] = $activation['email'] ?? '-';
+            }
+        }
+        return ['sent' => count($sent), 'failed' => count($failed), 'sent_to' => $sent, 'failed_to' => $failed];
+    }
+    private function deliveryMessage(string $prefix, array $delivery): string
+    {
+        if ($delivery['sent'] === 0 && $delivery['failed'] === 0) return $prefix;
+        if ($delivery['failed'] === 0) return $prefix . ' Email kode aktivasi berhasil dikirim ke ' . $delivery['sent'] . ' mahasiswa.';
+        if ($delivery['sent'] === 0) return $prefix . ' Kode dibuat, tetapi email belum terkirim. Periksa SMTP lalu kirim ulang kode aktivasi.';
+        return $prefix . ' Email terkirim ke ' . $delivery['sent'] . ' mahasiswa; ' . $delivery['failed'] . ' email belum terkirim.';
+    }
     private function actorId(): ?int { $auth = session('auth'); return is_array($auth) ? (int) ($auth['id'] ?? 0) ?: null : null; }
     private function writeAudit(string $action, int $id, ?array $old, ?array $new): void
     {

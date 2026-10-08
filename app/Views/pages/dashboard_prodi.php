@@ -1,0 +1,11 @@
+<?= $this->extend('layouts/main') ?>
+<?= $this->section('content') ?>
+<?= $this->include('pages/partials/page_heading') ?>
+<section class="sitara-hero" aria-labelledby="prodi-dashboard-title">
+    <div class="position-relative" style="z-index:1"><span class="badge bg-white text-primary mb-3">Dashboard Prodi</span><h1 class="h3 fw-bolder mb-2" id="prodi-dashboard-title">Kelola kegiatan akademik Prodi.</h1><p class="mb-4">Pantau mahasiswa, aturan kegiatan, serta kegiatan akademik pada periode aktif.</p><?php if ($period): ?><span class="badge bg-primary-subtle text-primary-emphasis">Periode aktif: <?= esc($period['academic_year_code'] . ' — ' . $period['semester_code']) ?></span><?php else: ?><span class="badge bg-warning-subtle text-warning-emphasis">Belum ada periode akademik aktif</span><?php endif; ?></div>
+</section>
+<section class="row g-3 mt-1" aria-label="Ringkasan akademik Prodi">
+    <?php foreach ([['Mahasiswa', $studentCount, 'master/mahasiswa'], ['Kegiatan periode aktif', $activityCount, 'kegiatan-mahasiswa'], ['Aturan aktif', $ruleCount, 'aturan-kegiatan']] as [$label, $value, $route]): ?><div class="col-12 col-md-4"><article class="sitara-metric sitara-tone-blue h-100"><span class="sitara-metric-label"><?= esc($label) ?></span><div class="sitara-metric-value"><?= esc((string) $value) ?></div><a class="stretched-link small" href="<?= site_url($route) ?>">Buka menu</a></article></div><?php endforeach; ?>
+</section>
+<section class="card sitara-card mt-4"><header class="card-header"><h2 class="sitara-card-title">Program studi dalam scope Anda</h2><p class="sitara-card-subtitle">Data akademik Prodi lain tidak ditampilkan pada dashboard ini.</p></header><div class="table-responsive"><table class="table sitara-table mb-0"><thead><tr><th>Kode</th><th>Nama program studi</th><th>Jenjang</th></tr></thead><tbody><?php if ($programs === []): ?><tr><td colspan="3" class="sitara-empty">Akun belum dikaitkan dengan program studi.</td></tr><?php else: foreach ($programs as $program): ?><tr><td class="table-main"><?= esc($program['code']) ?></td><td><?= esc($program['name']) ?></td><td><?= esc($program['degree_level']) ?></td></tr><?php endforeach; endif; ?></tbody></table></div></section>
+<?= $this->endSection() ?>

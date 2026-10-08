@@ -39,6 +39,22 @@ class PaymentVerification extends BaseController
         } catch(Throwable $e) { return $this->error($e); }
     }
 
+    public function proof(int $id): ResponseInterface
+    {
+        try {
+            $payment = $this->db->table('student_payments')->select('proof_file_path')->where('id', $id)->get()->getRowArray();
+            $relative = is_array($payment) ? str_replace('\\', '/', (string) ($payment['proof_file_path'] ?? '')) : '';
+            if ($relative === '' || str_contains($relative, '..') || ! str_starts_with($relative, 'payment-proofs/')) return $this->response->setStatusCode(404);
+            $base = realpath(WRITEPATH . 'uploads/payment-proofs');
+            $path = realpath(WRITEPATH . 'uploads/' . $relative);
+            if ($base === false || $path === false || ! str_starts_with($path, $base . DIRECTORY_SEPARATOR) || ! is_file($path)) return $this->response->setStatusCode(404);
+            $mime = mime_content_type($path) ?: 'application/octet-stream';
+            return $this->response->setHeader('Content-Type', $mime)->setHeader('Content-Disposition', 'inline; filename="bukti-pembayaran-' . $id . '.' . pathinfo($path, PATHINFO_EXTENSION) . '"')->setBody((string) file_get_contents($path));
+        } catch (Throwable) {
+            return $this->response->setStatusCode(404);
+        }
+    }
+
     public function create(): ResponseInterface
     {
         try {

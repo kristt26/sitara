@@ -42,7 +42,7 @@ class Auth extends BaseController
         if (
             ! is_array($user)
             || ! (int) ($user['is_active'] ?? 0)
-            || ! in_array($user['role'] ?? null, ['ADMIN', 'MAHASISWA'], true)
+            || ! in_array($user['role'] ?? null, ['ADMIN', 'PRODI', 'KEUANGAN', 'MAHASISWA'], true)
             || ! password_verify($password, (string) ($user['password_hash'] ?? ''))
         ) {
             return redirect()->back()
@@ -83,7 +83,7 @@ class Auth extends BaseController
         $auth = session('auth');
         if (! is_array($auth) || empty($auth['id'])) return null;
         return match ($auth['role'] ?? null) {
-            'ADMIN' => site_url('/'),
+            'ADMIN', 'PRODI', 'KEUANGAN' => site_url('/'),
             'MAHASISWA' => site_url('portal-mahasiswa'),
             default => null,
         };

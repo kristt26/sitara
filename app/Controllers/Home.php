@@ -85,7 +85,29 @@ class Home extends BaseController
 
     public function index(): string
     {
+        $auth = session('auth');
+        if (is_array($auth) && ($auth['role'] ?? null) === 'PRODI') {
+            return $this->prodiDashboard();
+        }
+
         return $this->renderPage('dashboard');
+    }
+
+    private function prodiDashboard(): string
+    {
+        $db = db_connect();
+        $auth = session('auth');
+        $userId = is_array($auth) ? (int) ($auth['id'] ?? 0) : 0;
+        $programIds = $db->tableExists('user_study_programs')
+            ? array_map('intval', array_column($db->table('user_study_programs')->select('study_program_id')->where('user_id', $userId)->get()->getResultArray(), 'study_program_id'))
+            : [];
+        $programIds = $programIds === [] ? [0] : $programIds;
+        $period = $db->table('academic_periods ap')->select('ap.id,ap.semester_code,ay.code academic_year_code')->join('academic_years ay','ay.id=ap.academic_year_id')->where(['ap.is_active'=>1,'ay.is_active'=>1])->get()->getRowArray();
+        $studentCount = $db->table('students')->whereIn('study_program_id',$programIds)->where('status !=','NONAKTIF')->countAllResults();
+        $activityCount = $period ? $db->table('academic_activities')->whereIn('study_program_id',$programIds)->where('academic_period_id',$period['id'])->countAllResults() : 0;
+        $ruleCount = $period ? $db->table('activity_rules')->whereIn('study_program_id',$programIds)->where(['academic_period_id'=>$period['id'],'is_active'=>1])->countAllResults() : 0;
+        $programs = $db->table('study_programs')->whereIn('id',$programIds)->orderBy('code')->get()->getResultArray();
+        return view('pages/dashboard_prodi', ['live'=>true,'activeMenu'=>'dashboard','pageTitle'=>'Dashboard Prodi','pageSubtitle'=>'Ringkasan akademik program studi','period'=>$period,'programs'=>$programs,'studentCount'=>$studentCount,'activityCount'=>$activityCount,'ruleCount'=>$ruleCount]);
     }
 
     public function page(string $page): string

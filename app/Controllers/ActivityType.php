@@ -38,6 +38,7 @@ class ActivityType extends BaseController
     public function create(): ResponseInterface
     {
         try {
+            $this->assertGlobalMasterWriteAccess();
             $data = $this->payload(); $this->validateOrFail($data); $this->assertUniqueCode($data['code']);
             $now = date('Y-m-d H:i:s'); $this->db->transStart();
             $this->db->table('activity_types')->insert([...$data, 'created_at' => $now, 'updated_at' => $now]);
@@ -50,6 +51,7 @@ class ActivityType extends BaseController
     public function update(int $id): ResponseInterface
     {
         try {
+            $this->assertGlobalMasterWriteAccess();
             $existing = $this->byId($id); if ($existing === null) return $this->messageResponse('Jenis kegiatan tidak ditemukan.', 404);
             $data = $this->payload(); $this->validateOrFail($data); $this->assertUniqueCode($data['code'], $id);
             $this->db->transStart(); $this->db->table('activity_types')->where('id', $id)->update([...$data, 'updated_at' => date('Y-m-d H:i:s')]);
@@ -62,6 +64,7 @@ class ActivityType extends BaseController
     public function activate(int $id): ResponseInterface
     {
         try {
+            $this->assertGlobalMasterWriteAccess();
             $existing = $this->byId($id); if ($existing === null) return $this->messageResponse('Jenis kegiatan tidak ditemukan.', 404);
             $this->db->transStart(); $this->db->table('activity_types')->where('id', $id)->update(['is_active' => 1, 'updated_at' => date('Y-m-d H:i:s')]);
             $updated = $this->byId($id); $this->writeAudit('ACTIVITY_TYPE_ACTIVATED', $id, $existing, $updated);
@@ -73,6 +76,7 @@ class ActivityType extends BaseController
     public function delete(int $id): ResponseInterface
     {
         try {
+            $this->assertGlobalMasterWriteAccess();
             $existing = $this->byId($id); if ($existing === null) return $this->messageResponse('Jenis kegiatan tidak ditemukan.', 404);
             if (($usage = $this->firstUsage($id)) !== null) throw new RuntimeException('Jenis kegiatan tidak dapat dihapus karena sudah digunakan pada ' . $usage . '. Nonaktifkan untuk menyimpannya sebagai arsip.');
             $this->db->transStart(); $this->db->table('activity_types')->where('id', $id)->delete(); $this->writeAudit('ACTIVITY_TYPE_DELETED', $id, $existing, null);
@@ -95,6 +99,7 @@ class ActivityType extends BaseController
     }
 
     private function assertUniqueCode(string $code, ?int $exceptId = null): void { $builder = $this->db->table('activity_types')->where('code', $code); if ($exceptId !== null) $builder->where('id !=', $exceptId); if ($builder->countAllResults() > 0) throw new RuntimeException('Kode jenis kegiatan tersebut sudah digunakan.'); }
+    private function assertGlobalMasterWriteAccess(): void { $auth = session('auth'); if (! is_array($auth) || ($auth['role'] ?? null) !== 'ADMIN') throw new RuntimeException('Master jenis kegiatan hanya dapat diubah oleh administrator pusat.'); }
     private function byId(int $id): ?array { return $this->db->table('activity_types')->where('id', $id)->get()->getRowArray(); }
     private function firstUsage(int $id): ?string { foreach (['activity_rules' => 'aturan kegiatan', 'fee_settings' => 'pengaturan tarif', 'honor_rate_settings' => 'tarif honor', 'academic_activities' => 'kegiatan mahasiswa', 'student_bills' => 'tagihan mahasiswa'] as $table => $label) if ($this->db->table($table)->where('activity_type_id', $id)->countAllResults() > 0) return $label; return null; }
     private function assertTransaction(string $message): void { if (! $this->db->transStatus()) throw new RuntimeException($message); }

@@ -34,11 +34,9 @@ class ActivityRule extends BaseController
             if ($activePeriod !== null) {
                 $rules = $this->db->table('activity_rules ar')
                 ->select('ar.*, ap.semester_code, ay.code AS academic_year_code, ay.is_active AS academic_year_active, ap.is_active AS academic_period_active, sp.code AS program_code, sp.name AS program_name, at.code AS activity_code, at.name AS activity_name, at.examiner_supported')
-                ->join('academic_periods ap', 'ap.id = ar.academic_period_id')
-                ->join('academic_years ay', 'ay.id = ap.academic_year_id')
-                ->join('study_programs sp', 'sp.id = ar.study_program_id')
-                ->join('activity_types at', 'at.id = ar.activity_type_id')
-                ->where('ar.academic_period_id', $activePeriod['id'])
+                ->join('academic_periods ap', 'ap.id = ar.academic_period_id')->join('academic_years ay', 'ay.id = ap.academic_year_id')->join('study_programs sp', 'sp.id = ar.study_program_id')->join('activity_types at', 'at.id = ar.activity_type_id')->where('ar.academic_period_id', $activePeriod['id']);
+                $this->applyProgramScope($rules, 'ar.study_program_id');
+                $rules = $rules
                 ->orderBy('sp.code')->orderBy('at.code')
                 ->get()->getResultArray();
             }
@@ -48,7 +46,7 @@ class ActivityRule extends BaseController
                 'activePeriod' => $activePeriod,
                 'periods' => $this->periodOptions(),
                 'previousPeriods' => $activePeriod === null ? [] : $this->previousPeriodOptions($activePeriod),
-                'programs' => $this->db->table('study_programs')->select('id, code, name, degree_level, is_active')->orderBy('code')->get()->getResultArray(),
+                'programs' => $this->scopedPrograms(),
                 'activityTypes' => $this->db->table('activity_types')->select('id, code, name, examiner_supported, is_active')->orderBy('code')->get()->getResultArray(),
             ]);
         } catch (Throwable $exception) { return $this->errorResponse($exception); }
@@ -72,8 +70,9 @@ class ActivityRule extends BaseController
                 ->select('ar.study_program_id, ar.activity_type_id, ar.min_supervisors, ar.max_supervisors, ar.min_examiners, ar.max_examiners, ar.examiner_optional, ar.is_active, ar.notes')
                 ->join('study_programs sp', 'sp.id = ar.study_program_id AND sp.is_active = 1')
                 ->join('activity_types at', 'at.id = ar.activity_type_id AND at.is_active = 1')
-                ->where('ar.academic_period_id', $sourcePeriodId)
-                ->get()->getResultArray();
+                ->where('ar.academic_period_id', $sourcePeriodId);
+            $this->applyProgramScope($sourceRules, 'ar.study_program_id');
+            $sourceRules = $sourceRules->get()->getResultArray();
             if ($sourceRules === []) {
                 throw new RuntimeException('Periode sumber belum memiliki aturan yang dapat disalin.');
             }
@@ -178,7 +177,8 @@ class ActivityRule extends BaseController
     {
         $period = $this->db->table('academic_periods ap')->select('ap.is_active, ay.is_active AS year_active')->join('academic_years ay', 'ay.id = ap.academic_year_id')->where('ap.id', (int) $data['academic_period_id'])->get()->getRowArray();
         if ($period === null || (int) $period['is_active'] !== 1 || (int) $period['year_active'] !== 1) throw new RuntimeException('Periode akademik tidak ditemukan atau sedang nonaktif.');
-        if ($this->db->table('study_programs')->where(['id' => (int) $data['study_program_id'], 'is_active' => 1])->countAllResults() === 0) throw new RuntimeException('Program studi tidak ditemukan atau sedang nonaktif.');
+        $programQuery = $this->db->table('study_programs')->where(['id' => (int) $data['study_program_id'], 'is_active' => 1]); $this->applyProgramScope($programQuery, 'id');
+        if ($programQuery->countAllResults() === 0) throw new RuntimeException('Program studi tidak ditemukan atau sedang nonaktif.');
         if ($this->db->table('activity_types')->where(['id' => (int) $data['activity_type_id'], 'is_active' => 1])->countAllResults() === 0) throw new RuntimeException('Jenis kegiatan tidak ditemukan atau sedang nonaktif.');
     }
 
@@ -186,8 +186,11 @@ class ActivityRule extends BaseController
     private function periodOptions(): array { return $this->db->table('academic_periods ap')->select('ap.id, ap.semester_code, ap.start_date, ap.end_date, ap.is_active, ay.code AS academic_year_code, ay.is_active AS academic_year_active')->join('academic_years ay', 'ay.id = ap.academic_year_id')->orderBy('ay.start_year', 'DESC')->orderBy('ap.semester_code')->get()->getResultArray(); }
     private function activePeriod(): ?array { return $this->db->table('academic_periods ap')->select('ap.id, ap.academic_year_id, ap.semester_code, ap.start_date, ap.end_date, ay.code AS academic_year_code, ay.start_year')->join('academic_years ay', 'ay.id = ap.academic_year_id')->where(['ap.is_active' => 1, 'ay.is_active' => 1])->orderBy('ay.start_year', 'DESC')->get()->getRowArray(); }
     private function previousPeriodOptions(array $activePeriod): array { return $this->db->table('academic_periods ap')->select('ap.id, ap.semester_code, ap.start_date, ap.end_date, ay.code AS academic_year_code, ay.start_year, COUNT(ar.id) AS rule_count')->join('academic_years ay', 'ay.id = ap.academic_year_id')->join('activity_rules ar', 'ar.academic_period_id = ap.id', 'left')->groupBy('ap.id, ap.semester_code, ap.start_date, ap.end_date, ay.code, ay.start_year')->having('COUNT(ar.id) >', 0)->groupStart()->where('ay.start_year <', (int) $activePeriod['start_year'])->orGroupStart()->where('ay.start_year', (int) $activePeriod['start_year'])->where('ap.id <', (int) $activePeriod['id'])->groupEnd()->groupEnd()->orderBy('ay.start_year', 'DESC')->orderBy('ap.id', 'DESC')->get()->getResultArray(); }
-    private function byId(int $id): ?array { return $this->db->table('activity_rules')->where('id', $id)->get()->getRowArray(); }
+    private function byId(int $id): ?array { $query = $this->db->table('activity_rules')->where('id', $id); $this->applyProgramScope($query, 'study_program_id'); return $query->get()->getRowArray(); }
     private function hasAcademicActivity(array $rule): bool { return $this->db->table('academic_activities')->where(['academic_period_id' => $rule['academic_period_id'], 'study_program_id' => $rule['study_program_id'], 'activity_type_id' => $rule['activity_type_id']])->countAllResults() > 0; }
+    private function scopedPrograms(): array { $query = $this->db->table('study_programs')->select('id, code, name, degree_level, is_active'); $this->applyProgramScope($query, 'id'); return $query->orderBy('code')->get()->getResultArray(); }
+    private function programIds(): array { $auth = session('auth'); if (! is_array($auth) || ($auth['role'] ?? null) !== 'PRODI') return array_column($this->db->table('study_programs')->select('id')->where('is_active', 1)->get()->getResultArray(), 'id'); if (! $this->db->tableExists('user_study_programs')) return [0]; $ids = array_column($this->db->table('user_study_programs')->select('study_program_id')->where('user_id', (int) ($auth['id'] ?? 0))->get()->getResultArray(), 'study_program_id'); return $ids === [] ? [0] : array_map('intval', $ids); }
+    private function applyProgramScope($query, string $column): void { $auth = session('auth'); if (is_array($auth) && ($auth['role'] ?? null) === 'PRODI') $query->whereIn($column, $this->programIds()); }
     private function assertTransaction(string $message): void { if (! $this->db->transStatus()) throw new RuntimeException($message); }
     private function writeAudit(string $action, int $id, ?array $old, ?array $new): void { $auth = session('auth'); $this->db->table('audit_logs')->insert(['user_id' => is_array($auth) ? ($auth['id'] ?? null) : null, 'action' => $action, 'entity_type' => 'activity_rules', 'entity_id' => $id, 'old_values' => $old === null ? null : json_encode($old, JSON_UNESCAPED_UNICODE), 'new_values' => $new === null ? null : json_encode($new, JSON_UNESCAPED_UNICODE), 'ip_address' => $this->request->getIPAddress(), 'created_at' => date('Y-m-d H:i:s')]); }
     private function successResponse(mixed $data = null, ?string $message = null, int $status = 200): ResponseInterface { return $this->response->setStatusCode($status)->setJSON(['ok' => true, 'message' => $message, 'data' => $data, 'csrf' => $this->csrfPayload()]); }

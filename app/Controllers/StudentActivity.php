@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Libraries\StudentActivitySpreadsheetImporter;
 use App\Libraries\StudentActivityTemplateExporter;
+use App\Libraries\AcademicDocumentExporter;
 use CodeIgniter\Database\BaseConnection;
 use CodeIgniter\HTTP\ResponseInterface;
 use RuntimeException;
@@ -31,17 +32,19 @@ class StudentActivity extends BaseController
         try {
             $period = $this->activePeriod(); $rows = []; $rules = [];
             if ($period) {
-                $rows = $this->db->table('academic_activities aa')
+                $rowsQuery = $this->db->table('academic_activities aa')
                     ->select('aa.*,s.nim,s.full_name,sp.code AS program_code,sp.name AS program_name,at.code AS activity_code,at.name AS activity_name,ep.code AS exam_path_code,ep.name AS exam_path_name,COUNT(DISTINCT CASE WHEN asg.role_type=\'PEMBIMBING\' THEN asg.id END) AS supervisor_count,COUNT(DISTINCT CASE WHEN asg.role_type=\'PENGUJI\' THEN asg.id END) AS examiner_count')
                     ->join('students s','s.id=aa.student_id')->join('study_programs sp','sp.id=aa.study_program_id')->join('activity_types at','at.id=aa.activity_type_id')->join('exam_paths ep','ep.id=aa.exam_path_id')->join('activity_assignments asg','asg.activity_id=aa.id AND asg.status=\'AKTIF\'','left')
-                    ->where('aa.academic_period_id',$period['id'])
+                    ->where('aa.academic_period_id',$period['id']);
+                $this->applyProgramScope($rowsQuery, 'aa.study_program_id');
+                $rows = $rowsQuery
                     ->groupBy('aa.id,aa.activity_no,aa.student_id,aa.academic_period_id,aa.study_program_id,aa.activity_type_id,aa.exam_path_id,aa.attempt_no,aa.title,aa.scheduled_at,aa.completed_at,aa.status,aa.notes,aa.created_at,aa.updated_at,s.nim,s.full_name,sp.code,sp.name,at.code,at.name,ep.code,ep.name')
                     ->orderBy('aa.created_at','DESC')->get()->getResultArray();
-                $rules = $this->db->table('activity_rules')->where(['academic_period_id'=>$period['id'],'is_active'=>1])->get()->getResultArray();
+                $rulesQuery = $this->db->table('activity_rules')->where(['academic_period_id'=>$period['id'],'is_active'=>1]); $this->applyProgramScope($rulesQuery, 'study_program_id'); $rules = $rulesQuery->get()->getResultArray();
             }
             return $this->success(['activePeriod'=>$period,'activities'=>$rows,'rules'=>$rules,
-                'activityHistory'=>$this->db->table('academic_activities')->select('student_id,activity_type_id,attempt_no,status')->orderBy('attempt_no','ASC')->get()->getResultArray(),
-                'students'=>$this->db->table('students')->select('id,nim,full_name,study_program_id,status')->where('status','AKTIF')->orderBy('nim')->get()->getResultArray(),
+                'activityHistory'=>$this->scopedActivityHistory(),
+                'students'=>$this->scopedStudents(),
                 'activityTypes'=>$this->db->table('activity_types')->select('id,code,name,is_active')->where('is_active',1)->orderBy('code')->get()->getResultArray(),
                 'examPaths'=>$this->db->table('exam_paths')->select('id,code,name')->where('is_active',1)->orderBy('sort_order')->get()->getResultArray(),
                 'lecturers'=>$this->db->table('lecturers')->select('id,nidn,nip,full_name')->where('is_active',1)->orderBy('full_name')->get()->getResultArray()]);
@@ -76,17 +79,99 @@ class StudentActivity extends BaseController
         try {
             $period = $this->activePeriod();
             if (!$period) throw new RuntimeException('Belum ada periode akademik aktif.');
-            $students = $this->db->table('students s')->select('s.nim,s.full_name,sp.code program_code,sp.name program_name')->join('study_programs sp','sp.id=s.study_program_id')->where('s.status','AKTIF')->orderBy('s.nim')->get()->getResultArray();
+            $studentsQuery = $this->db->table('students s')->select('s.nim,s.full_name,sp.code program_code,sp.name program_name')->join('study_programs sp','sp.id=s.study_program_id')->where('s.status','AKTIF'); $this->applyProgramScope($studentsQuery, 's.study_program_id'); $students = $studentsQuery->orderBy('s.nim')->get()->getResultArray();
             $types = $this->db->table('activity_types')->select('code,name')->where('is_active',1)->orderBy('code')->get()->getResultArray();
             $paths = $this->db->table('exam_paths')->select('code,name')->where('is_active',1)->orderBy('sort_order')->get()->getResultArray();
             $lecturers = $this->db->table('lecturers')->select('nidn,nip,full_name')->where('is_active',1)->orderBy('full_name')->get()->getResultArray();
             $lecturers = array_values(array_filter(array_map(function($x){$x['identifier']=trim((string)($x['nidn']?:$x['nip']));return$x;},$lecturers),fn($x)=>$x['identifier']!==''));
-            $rules = $this->db->table('activity_rules ar')->select('sp.code program_code,at.code activity_code,ar.min_supervisors,ar.max_supervisors,ar.min_examiners,ar.max_examiners')->join('study_programs sp','sp.id=ar.study_program_id')->join('activity_types at','at.id=ar.activity_type_id')->where(['ar.academic_period_id'=>$period['id'],'ar.is_active'=>1])->orderBy('sp.code')->orderBy('at.code')->get()->getResultArray();
+            $rulesQuery = $this->db->table('activity_rules ar')->select('sp.code program_code,at.code activity_code,ar.min_supervisors,ar.max_supervisors,ar.min_examiners,ar.max_examiners')->join('study_programs sp','sp.id=ar.study_program_id')->join('activity_types at','at.id=ar.activity_type_id')->where(['ar.academic_period_id'=>$period['id'],'ar.is_active'=>1]); $this->applyProgramScope($rulesQuery, 'ar.study_program_id'); $rules = $rulesQuery->orderBy('sp.code')->orderBy('at.code')->get()->getResultArray();
             $temporary = (new StudentActivityTemplateExporter())->export($students,$types,$paths,$lecturers,$rules);
             $contents = file_get_contents($temporary); @unlink($temporary);
             if($contents===false)throw new RuntimeException('Template kegiatan mahasiswa belum dapat dibuat.');
             return $this->response->download('template-import-kegiatan-mahasiswa.xlsx',$contents);
         } catch(Throwable $e) { return $this->error($e); }
+    }
+
+    public function document(int $id, string $kind = 'tunggal'): ResponseInterface
+    {
+        try {
+            $activities = $this->documentActivities([$id]);
+            if ($activities === []) throw new RuntimeException('Kegiatan mahasiswa tidak ditemukan.');
+            $activities[0]['nomor_surat'] = $this->letterNumber($activities[0]);
+            $kind = in_array($kind, ['nilai', 'tunggal'], true) ? $kind : 'tunggal';
+            $template = $this->templatePath($activities[0], $kind);
+            $file = (new AcademicDocumentExporter())->export($template, $activities, $kind, $this->templateFields($activities[0], $kind));
+            $name = ($kind === 'nilai' ? 'nilai-' : 'berita-acara-') . preg_replace('/[^A-Za-z0-9_-]+/', '-', (string)$activities[0]['nim']) . '.docx';
+            $contents = file_get_contents($file); @unlink($file);
+            if ($contents === false) throw new RuntimeException('Dokumen belum dapat dibuat.');
+            return $this->response->download($name, $contents);
+        } catch (Throwable $e) { return $this->error($e); }
+    }
+
+    public function documentTeam(): ResponseInterface
+    {
+        try {
+            $input = $this->input();
+            $ids = array_values(array_unique(array_map('intval', is_array($input['ids'] ?? null) ? $input['ids'] : [])));
+            if (count($ids) < 2) throw new RuntimeException('Pilih minimal dua mahasiswa untuk berita acara tim.');
+            $activities = $this->documentActivities($ids);
+            if (count($activities) !== count($ids)) throw new RuntimeException('Sebagian kegiatan tidak ditemukan atau berada di luar akses Prodi.');
+            $first = $activities[0];
+            foreach ($activities as $activity) {
+                if (!$activity['scheduled_at']) throw new RuntimeException('Semua kegiatan yang dipilih harus sudah memiliki jadwal.');
+                foreach (['academic_period_id','activity_type_id','exam_path_id','scheduled_at'] as $field) {
+                    if ((string)$activity[$field] !== (string)$first[$field]) throw new RuntimeException('Berita acara tim hanya dapat menggabungkan kegiatan dengan periode, kegiatan, jalur, dan jadwal yang sama.');
+                }
+            }
+            $activities[0]['nomor_surat'] = $this->letterNumber($first);
+            $template = $this->templatePath($first, 'tim');
+            $file = (new AcademicDocumentExporter())->export($template, $activities, 'tim', $this->templateFields($first, 'tim'));
+            $contents = file_get_contents($file); @unlink($file);
+            if ($contents === false) throw new RuntimeException('Dokumen berita acara tim belum dapat dibuat.');
+            return $this->response->download('berita-acara-tim.docx', $contents);
+        } catch (Throwable $e) { return $this->error($e); }
+    }
+
+    private function documentActivities(array $ids): array
+    {
+        $query = $this->db->table('academic_activities aa')
+            ->select('aa.*,s.nim,s.full_name,sp.code AS program_code,sp.name AS program_name,at.name AS activity_name,ep.name AS exam_path_name')
+            ->join('students s','s.id=aa.student_id')->join('study_programs sp','sp.id=aa.study_program_id')
+            ->join('activity_types at','at.id=aa.activity_type_id')->join('exam_paths ep','ep.id=aa.exam_path_id')
+            ->whereIn('aa.id', $ids)->whereIn('aa.status', ['TERJADWAL','SELESAI']);
+        $this->applyProgramScope($query, 'aa.study_program_id');
+        $rows = $query->get()->getResultArray();
+        usort($rows, static fn(array $a, array $b): int => array_search((int)$a['id'], $ids, true) <=> array_search((int)$b['id'], $ids, true));
+        foreach ($rows as &$row) {
+            $row['assignments'] = $this->db->table('activity_assignments asg')->select('asg.*,l.full_name,l.nidn,l.nip')->join('lecturers l','l.id=asg.lecturer_id')->where(['asg.activity_id'=>(int)$row['id'],'asg.status'=>'AKTIF'])->orderBy('asg.role_type')->orderBy('asg.position_no')->get()->getResultArray();
+        }
+        return $rows;
+    }
+
+    private function letterNumber(array $activity): string
+    {
+        $month = (int)date('n', strtotime((string)($activity['scheduled_at'] ?? 'now')));
+        $roman = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'][$month] ?? 'I';
+        return str_pad((string)((int)($activity['id'] ?? 0)), 3, '0', STR_PAD_LEFT) . '/INT.PRODI ' . ($activity['program_code'] ?? '') . '/SEPNOP/' . $roman . '/' . date('Y', strtotime((string)($activity['scheduled_at'] ?? 'now')));
+    }
+
+    private function templatePath(array $activity, string $kind): string
+    {
+        $documentType = $kind === 'nilai' ? 'NILAI' : ($kind === 'tim' ? 'BERITA_ACARA_TIM' : 'BERITA_ACARA_TUNGGAL');
+        if ($this->db->tableExists('document_templates')) {
+            $query = $this->db->table('document_templates')->where(['study_program_id'=>(int)$activity['study_program_id'],'activity_type_id'=>(int)$activity['activity_type_id'],'document_type'=>$documentType,'is_active'=>1])->orderBy('version_no','DESC')->orderBy('id','DESC')->get()->getRowArray();
+            if ($query && is_file(WRITEPATH . $query['stored_path'])) return WRITEPATH . $query['stored_path'];
+        }
+        return ROOTPATH . 'public/templates/' . ($kind === 'nilai' ? 'nilai.docx' : ($kind === 'tim' ? 'berita-acara-tim.docx' : 'berita-acara-tunggal.docx'));
+    }
+
+    private function templateFields(array $activity, string $kind): array
+    {
+        if (!$this->db->tableExists('document_templates')) return [];
+        $documentType = $kind === 'nilai' ? 'NILAI' : ($kind === 'tim' ? 'BERITA_ACARA_TIM' : 'BERITA_ACARA_TUNGGAL');
+        $template = $this->db->table('document_templates')->where(['study_program_id'=>(int)$activity['study_program_id'],'activity_type_id'=>(int)$activity['activity_type_id'],'document_type'=>$documentType,'is_active'=>1])->orderBy('version_no','DESC')->orderBy('id','DESC')->get()->getRowArray();
+        if (!$template) return [];
+        return $this->db->table('document_template_fields')->where('template_id',(int)$template['id'])->orderBy('sort_order')->get()->getResultArray();
     }
 
     public function import(): ResponseInterface
@@ -97,7 +182,7 @@ class StudentActivity extends BaseController
             if(strtolower($file->getClientExtension())!=='xlsx')throw new RuntimeException('Format berkas harus .xlsx. Gunakan template yang disediakan.');
             if($file->getSize()>4*1024*1024)throw new RuntimeException('Ukuran berkas Excel maksimal 4 MB.');
             $rows=(new StudentActivitySpreadsheetImporter())->read($file->getTempName());
-            $students=[];foreach($this->db->table('students')->select('id,nim,study_program_id')->where('status','AKTIF')->get()->getResultArray()as$x)$students[strtoupper($x['nim'])]=$x;
+            $students=[];foreach($this->scopedStudents(['id','nim','study_program_id']) as$x)$students[strtoupper($x['nim'])]=$x;
             $types=[];foreach($this->db->table('activity_types')->select('id,code')->where('is_active',1)->get()->getResultArray()as$x)$types[strtoupper($x['code'])]=(int)$x['id'];
             $paths=[];foreach($this->db->table('exam_paths')->select('id,code')->where('is_active',1)->get()->getResultArray()as$x)$paths[strtoupper($x['code'])]=(int)$x['id'];
             $lecturers=[];foreach($this->db->table('lecturers')->select('id,nidn,nip')->where('is_active',1)->get()->getResultArray()as$x)foreach(['nidn','nip']as$key)if(trim((string)$x[$key])!=='')$lecturers[strtoupper(trim($x[$key]))]=(int)$x['id'];
@@ -134,6 +219,23 @@ class StudentActivity extends BaseController
         return ['student_id'=>$studentId,'academic_period_id'=>$periodId,'study_program_id'=>(int)($student['study_program_id']??0),'activity_type_id'=>(int)($i['activity_type_id']??0),'exam_path_id'=>(int)($i['exam_path_id']??0),'attempt_no'=>1,'title'=>($v=trim((string)($i['title']??'')))===''?null:$v,'scheduled_at'=>$scheduled===''?null:str_replace('T',' ',$scheduled).(strlen($scheduled)===16?':00':''),'completed_at'=>null,'status'=>strtoupper(trim((string)($i['status']??'DRAFT'))),'notes'=>($v=trim((string)($i['notes']??'')))===''?null:$v];
     }
 
+    private function scopedStudents(array $columns = ['id','nim','full_name','study_program_id','status']): array
+    {
+        $query = $this->db->table('students')->select(implode(',', $columns))->where('status','AKTIF'); $this->applyProgramScope($query, 'study_program_id'); return $query->orderBy('nim')->get()->getResultArray();
+    }
+
+    private function scopedActivityHistory(): array
+    {
+        $query = $this->db->table('academic_activities aa')->select('aa.student_id,aa.activity_type_id,aa.attempt_no,aa.status')->join('students s','s.id=aa.student_id'); $this->applyProgramScope($query, 'aa.study_program_id'); return $query->orderBy('aa.attempt_no','ASC')->get()->getResultArray();
+    }
+
+    private function programIds(): array
+    {
+        $auth = session('auth'); if (!is_array($auth) || ($auth['role'] ?? null) !== 'PRODI') return array_column($this->db->table('study_programs')->select('id')->where('is_active',1)->get()->getResultArray(),'id'); if (!$this->db->tableExists('user_study_programs')) return [0]; $ids = array_column($this->db->table('user_study_programs')->select('study_program_id')->where('user_id',(int)($auth['id'] ?? 0))->get()->getResultArray(),'study_program_id'); return $ids === [] ? [0] : array_map('intval',$ids);
+    }
+
+    private function applyProgramScope($query, string $column): void { $auth=session('auth'); if(is_array($auth)&&($auth['role']??null)==='PRODI') $query->whereIn($column,$this->programIds()); }
+
     private function importedDateTime(mixed $value): ?string
     {
         $value=trim((string)$value);if($value==='')return null;
@@ -143,7 +245,7 @@ class StudentActivity extends BaseController
 
     private function validateActivity(array $d,?int $except=null):array
     {
-        if($this->db->table('students')->where(['id'=>$d['student_id'],'status'=>'AKTIF'])->countAllResults()===0) throw new RuntimeException('Mahasiswa tidak ditemukan atau tidak aktif.');
+        $studentQuery=$this->db->table('students')->where(['id'=>$d['student_id'],'status'=>'AKTIF']); $this->applyProgramScope($studentQuery,'study_program_id'); if($studentQuery->countAllResults()===0) throw new RuntimeException('Mahasiswa tidak ditemukan, tidak aktif, atau berada di luar scope Prodi.');
         if($this->db->table('activity_types')->where(['id'=>$d['activity_type_id'],'is_active'=>1])->countAllResults()===0) throw new RuntimeException('Jenis kegiatan wajib dipilih dan harus aktif.');
         if(!in_array($d['status'],self::STATUSES,true)) throw new RuntimeException('Status kegiatan tidak valid.');
         if($d['attempt_no']<1||$d['attempt_no']>99) throw new RuntimeException('Percobaan harus antara 1 dan 99.');
@@ -176,9 +278,9 @@ class StudentActivity extends BaseController
     }
 
     private function storeAssignments(int $activityId,array $assignments,string $now):void{foreach($assignments as $a)$this->db->table('activity_assignments')->insert([...$a,'activity_id'=>$activityId,'assigned_date'=>date('Y-m-d'),'status'=>'AKTIF','created_at'=>$now,'updated_at'=>$now]);}
-    private function ruleFor(array $d):?array{return$this->db->table('activity_rules')->where(['academic_period_id'=>$d['academic_period_id'],'study_program_id'=>$d['study_program_id'],'activity_type_id'=>$d['activity_type_id'],'is_active'=>1])->get()->getRowArray();}
+    private function ruleFor(array $d):?array{$query=$this->db->table('activity_rules')->where(['academic_period_id'=>$d['academic_period_id'],'study_program_id'=>$d['study_program_id'],'activity_type_id'=>$d['activity_type_id'],'is_active'=>1]);$this->applyProgramScope($query,'study_program_id');return$query->get()->getRowArray();}
     private function activePeriod():?array{return$this->db->table('academic_periods ap')->select('ap.id,ap.semester_code,ay.code AS academic_year_code')->join('academic_years ay','ay.id=ap.academic_year_id')->where(['ap.is_active'=>1,'ay.is_active'=>1])->get()->getRowArray();}
-    private function byId(int $id):?array{return$this->db->table('academic_activities')->where('id',$id)->get()->getRowArray();}
+    private function byId(int $id):?array{$query=$this->db->table('academic_activities')->where('id',$id);$this->applyProgramScope($query,'study_program_id');return$query->get()->getRowArray();}
     private function snapshot(int $id):?array{$a=$this->byId($id);if(!$a)return null;$a['assignments']=$this->db->table('activity_assignments')->where('activity_id',$id)->orderBy('role_type')->orderBy('position_no')->get()->getResultArray();return$a;}
     private function locked(int $id):bool{if($this->db->table('student_bills')->where('activity_id',$id)->countAllResults()>0)return true;$assignmentIds=array_column($this->db->table('activity_assignments')->select('id')->where('activity_id',$id)->get()->getResultArray(),'id');return$assignmentIds!==[]&&$this->db->table('honor_entitlements')->whereIn('assignment_id',$assignmentIds)->countAllResults()>0;}
     private function terminalStatus(string $status):bool{return in_array($status,['SELESAI','CANCELLED'],true);}

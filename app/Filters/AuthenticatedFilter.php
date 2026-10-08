@@ -11,7 +11,7 @@ class AuthenticatedFilter implements FilterInterface
     public function before(RequestInterface $request, $arguments = null)
     {
         $auth = session('auth');
-        if (is_array($auth) && ! empty($auth['id']) && in_array($auth['role'] ?? null, ['ADMIN', 'MAHASISWA'], true)) {
+        if (is_array($auth) && ! empty($auth['id']) && in_array($auth['role'] ?? null, ['ADMIN', 'PRODI', 'KEUANGAN', 'MAHASISWA'], true)) {
             return null;
         }
 
