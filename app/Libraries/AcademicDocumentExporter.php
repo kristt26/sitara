@@ -186,6 +186,10 @@ class AcademicDocumentExporter
                 return array_key_exists($key, $values) ? (string)$values[$key] : (array_key_exists($m[1], $values) ? (string)$values[$m[1]] : $m[0]);
             }, $node->nodeValue);
         }
+        // Berita acara templates are controlled exclusively by explicit
+        // ${field_key} placeholders. Keep all other template text, tables,
+        // sample names, tabs, and signatures unchanged.
+        if (in_array($kind, ['tunggal', 'tim'], true)) return $dom->saveXML();
         $paragraphs = $xpath->query('//*[local-name()="p"]');
         $previous = '';
         $titleLabel = false;
