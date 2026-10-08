@@ -12,6 +12,7 @@ angular
   .factory("tarifService", tarifService)
   .factory("kegiatanMahasiswaService", kegiatanMahasiswaService)
   .factory("documentTemplateService", documentTemplateService)
+  .factory("letterNumberFormatService", letterNumberFormatService)
   .factory("tagihanMahasiswaService", tagihanMahasiswaService)
   .factory("verifikasiPembayaranService", verifikasiPembayaranService)
   .factory("tarifHonorService", tarifHonorService).factory("hakHonorService", hakHonorService).factory("batchHonorService", batchHonorService).factory("adminUserService", adminUserService).factory("auditLogService", auditLogService);
@@ -275,6 +276,7 @@ function adminUserService($http,helperServices){var a=simpleApi($http,helperServ
 function auditLogService($http,helperServices){var a=simpleApi($http,helperServices,"SITARA_AUDIT_CONFIG","audit-log");a.detail=function(id){return apiRequest($http,{method:"GET",url:a.base+"/detail/"+id});};return a;}
 
 function documentTemplateService($http,helperServices){var c=trimTrailingSlash(joinUrl(helperServices.url,"template-dokumen"));return{get:function(){return apiRequest($http,{method:"GET",url:c+"/read"});},upload:function(model,file){var d=new FormData();d.append("activity_type_id",model.activity_type_id);d.append("document_type",model.document_type);d.append("file",file);return apiRequest($http,{method:"POST",url:c+"/upload",data:d,transformRequest:angular.identity,headers:uploadHeaders()});},saveFields:function(id,fields){return apiRequest($http,{method:"PUT",url:c+"/fields/"+id,data:{fields:fields},headers:mutationHeaders()});},downloadUrl:function(id){return c+"/download/"+id;}};}
+function letterNumberFormatService($http,helperServices){var c=trimTrailingSlash(joinUrl(helperServices.url,"format-nomor-surat"));return{get:function(){return apiRequest($http,{method:"GET",url:c+"/read"});},save:function(model){return apiRequest($http,{method:"POST",url:c+"/save",data:model,headers:mutationHeaders()});}};}
 
 function apiRequest($http, request) {
   return $http(request).then(

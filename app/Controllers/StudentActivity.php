@@ -138,6 +138,7 @@ class StudentActivity extends BaseController
             ->select('aa.*,s.nim,s.full_name,sp.code AS program_code,sp.name AS program_name,at.name AS activity_name,ep.name AS exam_path_name')
             ->join('students s','s.id=aa.student_id')->join('study_programs sp','sp.id=aa.study_program_id')
             ->join('activity_types at','at.id=aa.activity_type_id')->join('exam_paths ep','ep.id=aa.exam_path_id')
+            ->select('aa.*,s.nim,s.full_name,sp.code AS program_code,sp.name AS program_name,at.code AS activity_code,at.name AS activity_name,ep.name AS exam_path_name')
             ->whereIn('aa.id', $ids)->whereIn('aa.status', ['TERJADWAL','SELESAI']);
         $this->applyProgramScope($query, 'aa.study_program_id');
         $rows = $query->get()->getResultArray();
@@ -150,9 +151,20 @@ class StudentActivity extends BaseController
 
     private function letterNumber(array $activity): string
     {
+        if (trim((string)($activity['letter_number'] ?? '')) !== '') return (string)$activity['letter_number'];
         $month = (int)date('n', strtotime((string)($activity['scheduled_at'] ?? 'now')));
         $roman = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'][$month] ?? 'I';
-        return str_pad((string)((int)($activity['id'] ?? 0)), 3, '0', STR_PAD_LEFT) . '/INT.PRODI ' . ($activity['program_code'] ?? '') . '/SEPNOP/' . $roman . '/' . date('Y', strtotime((string)($activity['scheduled_at'] ?? 'now')));
+        $year = date('Y', strtotime((string)($activity['scheduled_at'] ?? 'now')));
+        $format = $this->db->table('letter_number_formats')->where(['study_program_id'=>(int)$activity['study_program_id'],'activity_type_id'=>(int)$activity['activity_type_id'],'is_active'=>1])->get()->getRowArray();
+        if (!$format) return str_pad((string)((int)($activity['id'] ?? 0)), 3, '0', STR_PAD_LEFT) . '/INT.PRODI ' . ($activity['program_code'] ?? '') . '/SEPNOP/' . $roman . '/' . $year;
+        $resetKey = strtoupper((string)$format['reset_scope']) === 'PERIODE' ? 'PERIODE-' . (int)$activity['academic_period_id'] : 'TAHUN-' . $year;
+        $number = (int)$format['next_number'];
+        if ((string)($format['reset_key'] ?? '') !== $resetKey) $number = 1;
+        $tokens=['nomor'=>str_pad((string)$number,'0' + (int)$format['padding'],'0',STR_PAD_LEFT),'kode_surat'=>(string)$format['letter_code'],'kode_prodi'=>(string)($activity['program_code']??''),'nama_prodi'=>(string)($activity['program_name']??''),'kode_kegiatan'=>(string)($activity['activity_code']??''),'nama_kegiatan'=>(string)($activity['activity_name']??''),'bulan'=>(string)$month,'bulan_romawi'=>$roman,'tahun'=>$year,'periode'=>(string)($activity['academic_period_id']??'')];
+        $numberString=preg_replace_callback('/\{([a-z0-9_]+)\}/i',static fn(array $m):string=>(string)($tokens[strtolower($m[1])]??$m[0]),(string)$format['format_template']);
+        $this->db->table('letter_number_formats')->where('id',(int)$format['id'])->update(['next_number'=>$number+1,'reset_key'=>$resetKey,'updated_at'=>date('Y-m-d H:i:s')]);
+        $this->db->table('academic_activities')->where('id',(int)$activity['id'])->update(['letter_number'=>$numberString,'updated_at'=>date('Y-m-d H:i:s')]);
+        return $numberString;
     }
 
     private function templatePath(array $activity, string $kind): string

@@ -83,6 +83,9 @@ $routes->group('', ['filter' => 'adminauth'], static function (RouteCollection $
         $routes->get('/', 'DocumentTemplate::index'); $routes->get('read', 'DocumentTemplate::read'); $routes->get('download/(:num)', 'DocumentTemplate::download/$1');
         $routes->post('upload', 'DocumentTemplate::upload', ['filter'=>'csrf']); $routes->put('fields/(:num)', 'DocumentTemplate::saveFields/$1', ['filter'=>'csrf']);
     });
+    $routes->group('format-nomor-surat', static function (RouteCollection $routes): void {
+        $routes->get('/', 'LetterNumberFormat::index'); $routes->get('read', 'LetterNumberFormat::read'); $routes->post('save', 'LetterNumberFormat::save', ['filter'=>'csrf']);
+    });
     $routes->group('keuangan/tagihan', static function (RouteCollection $routes): void {
         $routes->get('/', 'StudentBill::index'); $routes->get('read', 'StudentBill::read'); $routes->get('preview/(:num)', 'StudentBill::preview/$1'); $routes->get('detail/(:num)', 'StudentBill::detail/$1');
         $routes->post('post', 'StudentBill::create', ['filter'=>'csrf']);

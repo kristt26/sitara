@@ -47,6 +47,7 @@ class AdminAuthFilter implements FilterInterface
         $academic = str_starts_with($path, 'master/')
             || str_starts_with($path, 'kegiatan')
             || str_starts_with($path, 'template-dokumen')
+            || str_starts_with($path, 'format-nomor-surat')
             || str_starts_with($path, 'aturan-kegiatan');
 
         return match ($role) {

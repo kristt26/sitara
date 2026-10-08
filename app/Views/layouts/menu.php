@@ -27,6 +27,7 @@ $navGroups = [
         'items' => [
             ['key' => 'student-activities', 'route' => 'kegiatan-mahasiswa', 'label' => 'Kegiatan Mahasiswa'],
             ['key' => 'document-templates', 'route' => 'template-dokumen', 'label' => 'Template Dokumen'],
+            ['key' => 'letter-number-formats', 'route' => 'format-nomor-surat', 'label' => 'Format Nomor Surat'],
             ['key' => 'fees', 'route' => 'keuangan/tarif', 'label' => 'Tarif & Komponen'],
             ['key' => 'bills', 'route' => 'keuangan/tagihan', 'label' => 'Tagihan Mahasiswa'],
             ['key' => 'verification', 'route' => 'keuangan/verifikasi', 'label' => 'Verifikasi Pembayaran'],
@@ -52,7 +53,7 @@ $navGroups = [
 ];
 $userRole = (string) (is_array(session('auth')) ? (session('auth')['role'] ?? 'ADMIN') : 'ADMIN');
 $visibleKeys = match ($userRole) {
-    'PRODI' => ['dashboard', 'students', 'lecturers', 'activity-rules', 'student-activities', 'document-templates'],
+    'PRODI' => ['dashboard', 'students', 'lecturers', 'activity-rules', 'student-activities', 'document-templates', 'letter-number-formats'],
     'KEUANGAN' => ['dashboard', 'periods', 'payment-methods', 'fees', 'bills', 'verification', 'honor-rates', 'honor-entitlements', 'honor-payments'],
     default => null,
 };
